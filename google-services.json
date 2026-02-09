@@ -1,0 +1,114 @@
+{
+  "project_info": {
+    "project_number": "34507839177",
+    "project_id": "zirnarun-1b701",
+    "storage_bucket": "zirnarun-1b701.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:34507839177:android:a838aaf470cc8e2fd41f18",
+        "android_client_info": {
+          "package_name": "com.buannelstudio.puituapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "34507839177-nknkj556o4a88rskeeao5dv30frsolfl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.buannelstudio.puituapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "34507839177-gmpauvib2fashs19sdem8l2e758vfipb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtACuJqe2rbkQt_CXFCvhsdr-EBbxnGU8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "34507839177-gmpauvib2fashs19sdem8l2e758vfipb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "34507839177-lv9sj2rdp07pu6djli118u3k6kuvsgp3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.buannelstudio.puituapp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:34507839177:android:8c23cebadcf71d86d41f18",
+        "android_client_info": {
+          "package_name": "com.example.zirna_run_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "34507839177-94qo9i58euhp977f46s0kirc0mh991nb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.zirna_run_app",
+            "certificate_hash": "a08627d432188d804930d84d9b7a9e0a18d5e91f"
+          }
+        },
+        {
+          "client_id": "34507839177-makfv04n8mi8kq9hovs3raf111dk7beb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.zirna_run_app",
+            "certificate_hash": "d119f25849c1450e3973136d19a294149c2df817"
+          }
+        },
+        {
+          "client_id": "34507839177-qh2ulvaj5tm9j389lcu7dhg81qcika5s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.zirna_run_app",
+            "certificate_hash": "7efe39aa6ae6cd52a96760fa4fb90229da7476e1"
+          }
+        },
+        {
+          "client_id": "34507839177-gmpauvib2fashs19sdem8l2e758vfipb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtACuJqe2rbkQt_CXFCvhsdr-EBbxnGU8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "34507839177-gmpauvib2fashs19sdem8l2e758vfipb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "34507839177-lv9sj2rdp07pu6djli118u3k6kuvsgp3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.buannelstudio.puituapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
