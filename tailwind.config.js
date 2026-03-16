@@ -33,7 +33,7 @@ module.exports = {
           400: "#737373",
           500: "#525252",
           600: "#404040",
-          700: "#262626",
+          700: "#242424",
           800: "#171717",
           900: "#09090b", // Your secondary color
         },
@@ -42,6 +42,7 @@ module.exports = {
         background: {
           DEFAULT: "#FFFFFF",
           dark: "#09090b",
+          ddark: "#151515",
           card: "#F8F8F8",
           cardDark: "#171717",
         },

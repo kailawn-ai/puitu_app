@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "34507839177",
+    "firebase_url": "https://zirnarun-1b701-default-rtdb.firebaseio.com",
     "project_id": "zirnarun-1b701",
     "storage_bucket": "zirnarun-1b701.firebasestorage.app"
   },
@@ -19,6 +20,14 @@
           "android_info": {
             "package_name": "com.buannelstudio.puituapp",
             "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "34507839177-ug0gvva3ef1jv9j6oulq992pef5a00t2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.buannelstudio.puituapp",
+            "certificate_hash": "a08627d432188d804930d84d9b7a9e0a18d5e91f"
           }
         },
         {

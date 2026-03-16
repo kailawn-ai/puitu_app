@@ -1,6 +1,9 @@
 // app/(tabs)/profile.tsx
-import auth from "@react-native-firebase/auth";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import {
+  getStoredAuthUser,
+  type StoredAuthUser,
+} from "@/lib/utils/auth-user-store";
+import { useAlert } from "@/providers/alert-provider";
 import { useRouter } from "expo-router";
 import {
   Award,
@@ -14,7 +17,6 @@ import {
   Heart,
   HelpCircle,
   Lock,
-  LogOut,
   Mail,
   Moon,
   Settings,
@@ -26,8 +28,8 @@ import {
 import { useColorScheme } from "nativewind";
 import React from "react";
 import {
-  Alert,
   Image,
+  RefreshControl,
   ScrollView,
   Switch,
   Text,
@@ -37,17 +39,29 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ProfileScreen = () => {
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colorScheme, toggleColorScheme } = useColorScheme();
-  const user = auth().currentUser;
+  const [storedUser, setStoredUser] = React.useState<StoredAuthUser | null>(
+    null,
+  );
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  // Mock user data - in real app, fetch from your backend
+  const loadStoredUser = React.useCallback(async () => {
+    const user = await getStoredAuthUser();
+    setStoredUser(user);
+  }, []);
+
+  React.useEffect(() => {
+    loadStoredUser();
+  }, [loadStoredUser]);
+
   const userData = {
-    name: user?.displayName || "John Doe",
-    email: user?.email || "john@example.com",
+    name: storedUser?.name || "User",
+    email: storedUser?.email || "No email",
     avatar:
-      user?.photoURL ||
+      storedUser?.profile_image ||
       "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
     joinDate: "Joined October 2024",
     level: "Intermediate Learner",
@@ -135,30 +149,14 @@ const ProfileScreen = () => {
     },
   ];
 
-  const handleLogout = async () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // Sign out from Google
-            await GoogleSignin.signOut();
-            // Sign out from Firebase
-            await auth().signOut();
-            // Navigate to login
-            router.replace("/(auth)/login");
-          } catch (error) {
-            console.error("Logout error:", error);
-          }
-        },
-      },
-    ]);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadStoredUser();
+    setRefreshing(false);
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    alert.showWarning(
       "Delete Account",
       "This action cannot be undone. All your data will be permanently deleted.",
       [
@@ -168,7 +166,10 @@ const ProfileScreen = () => {
           style: "destructive",
           onPress: () => {
             // Implement account deletion logic
-            Alert.alert("Account Deletion", "This feature is coming soon.");
+            alert.showWarning(
+              "Account Deletion",
+              "This feature is coming soon.",
+            );
           },
         },
       ],
@@ -193,8 +194,8 @@ const ProfileScreen = () => {
   return (
     <View className="flex-1 bg-background dark:bg-background-dark">
       {/* Header */}
-      <View className="px-5 pt-4" style={{ paddingTop: insets.top + 16 }}>
-        <View className="flex-row justify-between items-center mb-6">
+      <View className="px-5" style={{ paddingTop: insets.top + 8 }}>
+        <View className="flex-row justify-between items-center mb-2">
           <Text className="text-3xl font-bold text-gray-900 dark:text-white">
             Profile
           </Text>
@@ -211,6 +212,9 @@ const ProfileScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Profile Header */}
         <View className="px-5 mb-8">
@@ -267,7 +271,7 @@ const ProfileScreen = () => {
                     key={itemIndex}
                     className={`flex-row items-center justify-between px-4 py-4 ${
                       itemIndex !== section.items.length - 1
-                        ? "border-b border-gray-100 dark:border-gray-700"
+                        ? "border-b border-white dark:border-gray-700"
                         : ""
                     }`}
                     activeOpacity={0.7}
@@ -333,38 +337,8 @@ const ProfileScreen = () => {
           ))}
         </View>
 
-        {/* Account Actions */}
-        <View className="px-5 mb-20">
-          <Text className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            Account Actions
-          </Text>
-
-          <View className="space-y-3">
-            <TouchableOpacity
-              className="flex-row items-center justify-center bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl"
-              activeOpacity={0.7}
-              onPress={handleLogout}
-            >
-              <LogOut size={20} color="#EF4444" className="mr-3" />
-              <Text className="text-red-600 dark:text-red-400 font-semibold text-center flex-1">
-                Log Out
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-2xl"
-              activeOpacity={0.7}
-              onPress={handleDeleteAccount}
-            >
-              <Text className="text-gray-700 dark:text-gray-300 font-medium">
-                Delete Account
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* App Info */}
-        <View className="px-5 pb-8">
+        <View className="px-5">
           <View className="items-center">
             <Text className="text-gray-500 dark:text-gray-400 text-sm mb-2">
               Puitu v2.0.1
@@ -375,21 +349,6 @@ const ProfileScreen = () => {
           </View>
         </View>
       </ScrollView>
-
-      {/* Floating Action Button for Edit Profile */}
-      <TouchableOpacity
-        className="absolute bottom-28 right-5 w-14 h-14 bg-primary-500 rounded-full items-center justify-center shadow-lg"
-        style={{
-          shadowColor: "#7A25FF",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 8,
-        }}
-        onPress={() => router.push("/profile/edit")}
-      >
-        <User size={24} color="#FFFFFF" />
-      </TouchableOpacity>
     </View>
   );
 };

@@ -2,11 +2,14 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs } from "expo-router";
 import * as Icons from "lucide-react-native";
-import { Platform, useColorScheme, View } from "react-native";
+import { useColorScheme, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_VISIBLE_HEIGHT = 59;
 
   // Create a wrapper component to handle icon rendering
   const IconWrapper = ({ name, focused, color, size }: any) => {
@@ -15,7 +18,7 @@ export default function TabsLayout() {
     return (
       <IconComponent
         size={size}
-        color={color}
+        color={focused ? "#FFFFFF" : color}
         strokeWidth={focused ? 2.5 : 2}
       />
     );
@@ -28,8 +31,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: "transparent",
           borderTopWidth: 0,
-          height: Platform.OS === "ios" ? 85 : 70,
-          paddingBottom: Platform.OS === "ios" ? 25 : 8,
+          height: TAB_BAR_VISIBLE_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 6,
           position: "absolute",
           borderTopLeftRadius: 16,
@@ -45,12 +48,12 @@ export default function TabsLayout() {
               isDark
                 ? [
                     "rgba(20, 20, 20, 0.500)",
-                    "rgba(10, 10, 10, 0.900)",
+                    "rgba(10, 10, 10, 0.950)",
                     "rgb(0, 0, 0)",
                   ]
                 : [
-                    "rgba(255, 255, 255, 0.400)", // Top
-                    "rgba(255, 255, 255, 0.900)", // Middle
+                    "rgba(255, 255, 255, 0.500)", // Top
+                    "rgba(255, 255, 255, 0.950)", // Middle
                     "rgb(255, 255, 255)", // Bottom
                   ]
             }
@@ -62,7 +65,7 @@ export default function TabsLayout() {
               left: 0,
               right: 0,
               bottom: 0,
-              height: Platform.OS === "ios" ? 85 : 70,
+              height: TAB_BAR_VISIBLE_HEIGHT + insets.bottom,
             }}
           >
             {/* Optional: Add a subtle border at top of tab bar */}
@@ -95,7 +98,7 @@ export default function TabsLayout() {
           title: "Home",
           href: "/home",
           tabBarIcon: ({ color, size, focused }) => (
-            <View className="relative">
+            <View className="items-center justify-center">
               <IconWrapper
                 name="Home"
                 focused={focused}
@@ -103,7 +106,7 @@ export default function TabsLayout() {
                 size={size}
               />
               {focused && (
-                <View className="absolute -top-4 w-7 h-1 bg-primary-500 rounded-full" />
+                <View className="absolute w-16 h-10 bg-primary-500 -z-10 rounded-full" />
               )}
             </View>
           ),
@@ -111,20 +114,20 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="course/index"
+        name="search/index"
         options={{
-          title: "Course",
-          href: "/course",
+          title: "Search",
+          href: "/search",
           tabBarIcon: ({ color, size, focused }) => (
-            <View className="relative">
+            <View className="items-center justify-center">
               <IconWrapper
-                name="BookOpen"
+                name="Search"
                 focused={focused}
                 color={color}
                 size={size}
               />
               {focused && (
-                <View className="absolute -top-4 w-7 h-1 bg-primary-500 rounded-full" />
+                <View className="absolute w-16 h-10 bg-primary-500 -z-10 rounded-full" />
               )}
             </View>
           ),
@@ -137,7 +140,7 @@ export default function TabsLayout() {
           title: "Short",
           href: "/short",
           tabBarIcon: ({ color, size, focused }) => (
-            <View className="relative">
+            <View className="items-center justify-center">
               <IconWrapper
                 name="PlayCircle"
                 focused={focused}
@@ -145,7 +148,7 @@ export default function TabsLayout() {
                 size={size}
               />
               {focused && (
-                <View className="absolute -top-4 w-7 h-1 bg-primary-500 rounded-full" />
+                <View className="absolute w-16 h-10 bg-primary-500 -z-10 rounded-full" />
               )}
             </View>
           ),
@@ -158,7 +161,7 @@ export default function TabsLayout() {
           title: "Premium",
           href: "/subscription",
           tabBarIcon: ({ color, size, focused }) => (
-            <View className="relative">
+            <View className="items-center justify-center">
               <IconWrapper
                 name="Crown"
                 focused={focused}
@@ -166,7 +169,7 @@ export default function TabsLayout() {
                 size={size}
               />
               {focused && (
-                <View className="absolute -top-4 w-7 h-1 bg-primary-500 rounded-full" />
+                <View className="absolute w-16 h-10 bg-primary-500 -z-10 rounded-full" />
               )}
             </View>
           ),
@@ -179,7 +182,7 @@ export default function TabsLayout() {
           title: "Profile",
           href: "/profile",
           tabBarIcon: ({ color, size, focused }) => (
-            <View className="relative">
+            <View className="items-center justify-center">
               <IconWrapper
                 name="User"
                 focused={focused}
@@ -187,7 +190,7 @@ export default function TabsLayout() {
                 size={size}
               />
               {focused && (
-                <View className="absolute -top-4 w-7 h-1 justify-center bg-primary-500 rounded-full" />
+                <View className="absolute w-16 h-10 bg-primary-500 -z-10 rounded-full" />
               )}
             </View>
           ),

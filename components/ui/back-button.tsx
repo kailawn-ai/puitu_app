@@ -1,25 +1,34 @@
-// components/ui/back-button.tsx
+// components/navigation/back-button.tsx
+
+import { BlurView } from "expo-blur";
 import { useNavigation } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
 
 interface BackButtonProps {
   onPress?: () => void;
   color?: string;
   size?: number;
   className?: string;
-  showBackground?: boolean;
 }
 
 export function BackButton({
   onPress,
-  color = "#FFFFFF",
-  size = 24,
+  color,
+  size = 22,
   className = "",
-  showBackground = true,
 }: BackButtonProps) {
   const navigation = useNavigation();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
+
+  const iconColor = color || (isDarkMode ? "#FFFFFF" : "#111827");
 
   const handlePress = () => {
     if (onPress) {
@@ -32,42 +41,19 @@ export function BackButton({
   return (
     <TouchableOpacity
       onPress={handlePress}
-      className={`${showBackground ? "bg-black/20 backdrop-blur-xl" : ""} w-14 h-14 rounded-full items-center justify-center border border-white/20 ${className}`}
-      activeOpacity={0.7}
-      style={
-        showBackground
-          ? {
-              // iOS-like backdrop filter fallback
-              backgroundColor: "rgba(0, 0, 0, 0.3)",
-              // Shadow for depth
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              elevation: 5,
-            }
-          : {}
-      }
+      activeOpacity={0.85}
+      className={`w-12 h-12 rounded-full overflow-hidden ${className}`}
     >
-      <View
-        style={
-          showBackground
-            ? {
-                // Inner glow effect
-                position: "absolute",
-                top: 1,
-                left: 1,
-                right: 1,
-                bottom: 1,
-                borderRadius: 24,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.1)",
-              }
-            : {}
-        }
+      <BlurView
+        intensity={110}
+        tint={isDarkMode ? "dark" : "light"}
+        style={StyleSheet.absoluteFill}
+        className="overflow-hidden"
       />
 
-      <ChevronLeft size={size} color={color} />
+      <View className="flex-1 items-center justify-center mr-1">
+        <ChevronLeft size={size} color={iconColor} strokeWidth={2.5} />
+      </View>
     </TouchableOpacity>
   );
 }

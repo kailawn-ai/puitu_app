@@ -1,6 +1,5 @@
 // components/navigation/side-drawer.tsx
-import auth from "@react-native-firebase/auth";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { useRouter } from "expo-router";
 import {
   Award,
@@ -15,7 +14,6 @@ import {
   Heart,
   HelpCircle,
   Home,
-  LogOut,
   Moon,
   PlayCircle,
   Settings,
@@ -51,16 +49,13 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
   const isDark = colorScheme === "dark";
   const translateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
-  const user = auth().currentUser;
-  const userData = {
-    name: user?.displayName || "John Doe",
-    email: user?.email || "john@example.com",
-    avatar:
-      user?.photoURL ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
-    membership: "Premium Member",
-    points: 1250,
-  };
+  const [userData, setUserData] = React.useState({
+    name: "User",
+    email: "No email",
+    avatar: "https://i.pravatar.cc/150?img=8",
+    membership: "Member",
+    points: 0,
+  });
 
   const menuSections = [
     {
@@ -201,6 +196,22 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
     }).start();
   }, [isVisible]);
 
+  React.useEffect(() => {
+    const loadUser = async () => {
+      const stored = await getStoredAuthUser();
+      if (!stored) return;
+
+      setUserData((prev) => ({
+        ...prev,
+        name: stored.name || prev.name,
+        email: stored.email || prev.email,
+        avatar: stored.profile_image || prev.avatar,
+      }));
+    };
+
+    loadUser();
+  }, [isVisible]);
+
   const handleNavigation = (route: string) => {
     onClose();
     setTimeout(() => {
@@ -208,17 +219,6 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
         router.push(route as any);
       }
     }, 300);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await GoogleSignin.signOut();
-      await auth().signOut();
-      onClose();
-      router.replace("/(auth)/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
   };
 
   const renderMenuItem = (item: any, index: number) => (
@@ -229,7 +229,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
       }
       className={`flex-row items-center justify-between px-6 py-4 ${
         index !== menuSections.flatMap((s) => s.items).length - 1
-          ? "border-b border-gray-100 dark:border-gray-800"
+          ? "border-b border-gray-200 dark:border-gray-800"
           : ""
       }`}
       activeOpacity={0.7}
@@ -241,7 +241,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
         >
           <item.icon size={20} color={item.color} />
         </View>
-        <Text className="text-gray-900 dark:text-white text-base font-medium flex-1">
+        <Text className="text-secondary-900 dark:text-white text-base font-medium flex-1">
           {item.label}
         </Text>
 
@@ -267,7 +267,12 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
       {/* Overlay */}
       {isVisible && (
         <TouchableOpacity
-          className="absolute inset-0 bg-black/50 z-40"
+          className="absolute inset-0 z-40"
+          style={{
+            backgroundColor: isDark
+              ? "rgba(0, 0, 0, 0.7)"
+              : "rgba(0, 0, 0, 0.5)",
+          }}
           activeOpacity={1}
           onPress={onClose}
         />
@@ -281,19 +286,19 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           transform: [{ translateX }],
           shadowColor: "#000",
           shadowOffset: { width: 2, height: 0 },
-          shadowOpacity: 0.25,
+          shadowOpacity: isDark ? 0.5 : 0.25,
           shadowRadius: 10,
           elevation: 20,
         }}
       >
         <View className="flex-1 bg-white dark:bg-secondary-900">
           {/* Header with User Info */}
-          <View className="pt-12 px-6 pb-8 bg-gradient-to-b from-primary-600 to-primary-800">
+          <View className="pt-12 px-6 pb-8 bg-primary-500 dark:bg-primary-600">
             <View className="flex-row justify-between items-center mb-8">
               <Text className="text-white text-2xl font-bold">Menu</Text>
               <TouchableOpacity
                 onPress={onClose}
-                className="w-10 h-10 bg-white/20 rounded-full items-center justify-center"
+                className="w-10 h-10 bg-white/20 rounded-full items-center justify-center active:bg-white/30"
               >
                 <X size={24} color="#FFFFFF" />
               </TouchableOpacity>
@@ -328,7 +333,10 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           </View>
 
           {/* Menu Content */}
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="flex-1 mb-2"
+            showsVerticalScrollIndicator={false}
+          >
             {menuSections.map((section, index) => (
               <View key={index} className="mb-2">
                 {section.title && (
@@ -336,7 +344,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
                     {section.title}
                   </Text>
                 )}
-                <View className="bg-white dark:bg-secondary-800 rounded-xl mx-4 overflow-hidden">
+                <View className="bg-white dark:bg-secondary-800 rounded-xl mx-4 overflow-hidden border border-gray-100 dark:border-gray-800">
                   {section.items.map((item, itemIndex) =>
                     renderMenuItem(item, itemIndex),
                   )}
@@ -344,22 +352,8 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
               </View>
             ))}
 
-            {/* Logout Button */}
-            <View className="mx-4 mt-6 mb-8">
-              <TouchableOpacity
-                onPress={handleLogout}
-                className="flex-row items-center justify-center bg-red-50 dark:bg-red-900/20 py-4 rounded-xl"
-                activeOpacity={0.7}
-              >
-                <LogOut size={20} color="#EF4444" className="mr-3" />
-                <Text className="text-red-600 dark:text-red-400 font-semibold">
-                  Log Out
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* App Version */}
-            <View className="items-center pb-8">
+            <View className="items-center pb-8 mt-4">
               <Text className="text-gray-400 dark:text-gray-500 text-sm">
                 Puitu v2.0.1
               </Text>
