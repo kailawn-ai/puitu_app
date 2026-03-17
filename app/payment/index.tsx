@@ -27,6 +27,7 @@ const PaymentScreen = () => {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const params = useLocalSearchParams<{
+    productId?: string;
     modelType?: ResolveProductParams["model_type"];
     modelId?: string;
     title?: string;
@@ -43,21 +44,31 @@ const PaymentScreen = () => {
   );
 
   useEffect(() => {
+    const productId = params.productId;
     const modelType = params.modelType;
     const modelId = params.modelId;
 
+    console.log("Product ID:", productId);
     console.log("Model Type:", modelType);
     console.log("Model ID:", modelId);
 
-    if (!modelType || !modelId) {
+    if (!productId && (!modelType || !modelId)) {
       setLoading(false);
       return;
     }
 
-    ProductService.resolveByContent({
-      model_type: modelType,
-      model_id: modelId,
-    })
+    const loadProduct = async () => {
+      if (productId) {
+        return ProductService.getById(productId);
+      }
+
+      return ProductService.resolveByContent({
+        model_type: modelType!,
+        model_id: modelId!,
+      });
+    };
+
+    loadProduct()
       .then(setProduct)
       .catch((error) => {
         console.log("Resolve product failed:", error);
@@ -66,7 +77,7 @@ const PaymentScreen = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, [params.modelId, params.modelType]);
+  }, [params.modelId, params.modelType, params.productId]);
 
   const handlePay = async () => {
     if (!product || paying) return;

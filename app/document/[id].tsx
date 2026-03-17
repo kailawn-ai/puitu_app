@@ -2,6 +2,7 @@ import DocDetailUI from "@/components/document/doc-detail-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
+import { extractDeniedProductId } from "@/lib/utils/product-access";
 import DocumentService, {
   type CourseDocument,
 } from "@/lib/services/document-service";
@@ -32,6 +33,7 @@ const DocumentDetailScreen = () => {
   const [document, setDocument] = useState<CourseDocument | null>(null);
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
+  const [lockedProductId, setLockedProductId] = useState<string | undefined>();
 
   const fetchDocument = useCallback(async () => {
     if (!id || !courseId) {
@@ -47,6 +49,7 @@ const DocumentDetailScreen = () => {
       setErrorTitle("Document Error");
       setErrorSheetVisible(false);
       setShowBuyAction(false);
+      setLockedProductId(undefined);
 
       const res = await DocumentService.getById(
         courseId,
@@ -56,12 +59,15 @@ const DocumentDetailScreen = () => {
       );
       setDocument(res as unknown as CourseDocument);
     } catch (err: any) {
-      const requiresPurchase = err?.data?.code === "666";
+      const errorCode = String(err?.data?.code ?? "");
+      const deniedProductId = extractDeniedProductId(err?.data);
+      const canBuy = errorCode === "666" || errorCode === "667";
       const title = err?.data?.head;
       const message = err?.data?.message ?? "Failed to load document";
       setErrorTitle(title);
       setError(message);
-      setShowBuyAction(requiresPurchase);
+      setShowBuyAction(canBuy);
+      setLockedProductId(deniedProductId);
       setErrorSheetVisible(true);
     } finally {
       setLoading(false);
@@ -97,6 +103,7 @@ const DocumentDetailScreen = () => {
       params: {
         modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-document",
         modelId: String(modelId ?? id),
+        productId: lockedProductId,
         title: "Document Access",
         returnTo: `/document/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
       },

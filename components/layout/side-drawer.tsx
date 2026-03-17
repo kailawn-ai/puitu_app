@@ -4,22 +4,17 @@ import { useRouter } from "expo-router";
 import {
   Award,
   Bell,
-  BookOpen,
   ChevronRight,
   Clock,
   CreditCard,
-  Crown,
   Download,
   Globe,
   Heart,
   HelpCircle,
-  Home,
   Moon,
-  PlayCircle,
   Settings,
   Shield,
   Star,
-  User,
   Users,
   X,
 } from "lucide-react-native";
@@ -52,44 +47,12 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
   const [userData, setUserData] = React.useState({
     name: "User",
     email: "No email",
-    avatar: "https://i.pravatar.cc/150?img=8",
+    avatar: "https://cdn-icons-png.flaticon.com/512/9187/9187532.png",
     membership: "Member",
     points: 0,
   });
 
   const menuSections = [
-    {
-      title: "Navigation",
-      items: [
-        { icon: Home, label: "Home", route: "/(tabs)/home", color: "#7A25FF" },
-        {
-          icon: BookOpen,
-          label: "Courses",
-          route: "/(tabs)/courses",
-          color: "#10B981",
-          badge: 4,
-        },
-        {
-          icon: PlayCircle,
-          label: "Shorts",
-          route: "/(tabs)/shorts",
-          color: "#3B82F6",
-          badge: 12,
-        },
-        {
-          icon: Crown,
-          label: "Premium",
-          route: "/(tabs)/subscription",
-          color: "#F59E0B",
-        },
-        {
-          icon: User,
-          label: "Profile",
-          route: "/(tabs)/profile",
-          color: "#8B5CF6",
-        },
-      ],
-    },
     {
       title: "Account",
       items: [

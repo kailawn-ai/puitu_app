@@ -17,7 +17,7 @@ import { saveAuthUserToStore } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
 import { getAuth } from "@react-native-firebase/auth";
 import { useRouter } from "expo-router";
-import { Bell } from "lucide-react-native";
+import { Bell, Search } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   BackHandler,
@@ -279,6 +279,13 @@ const HomeScreen = () => {
           </View>
 
           <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={() => router.push("/search")}
+              className="mr-2 p-2 bg-white dark:bg-secondary-800 rounded-xl"
+            >
+              <Search size={22} color="#6B7280" />
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => {
                 LayoutAnimation.configureNext(

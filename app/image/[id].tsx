@@ -2,6 +2,7 @@ import ImageDetailUI from "@/components/image/image-detail-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
+import { extractDeniedProductId } from "@/lib/utils/product-access";
 import ImageService, { type CourseImage } from "@/lib/services/image-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -30,6 +31,7 @@ const ImageDetailScreen = () => {
   const [image, setImage] = useState<CourseImage | null>(null);
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
+  const [lockedProductId, setLockedProductId] = useState<string | undefined>();
 
   const fetchImage = useCallback(async () => {
     if (!id || !courseId) {
@@ -45,6 +47,7 @@ const ImageDetailScreen = () => {
       setErrorTitle("Image Error");
       setErrorSheetVisible(false);
       setShowBuyAction(false);
+      setLockedProductId(undefined);
 
       const res = await ImageService.getById(
         courseId,
@@ -54,12 +57,15 @@ const ImageDetailScreen = () => {
       );
       setImage(res as unknown as CourseImage);
     } catch (err: any) {
-      const requiresPurchase = err?.data?.code === "666";
+      const errorCode = String(err?.data?.code ?? "");
+      const deniedProductId = extractDeniedProductId(err?.data);
+      const canBuy = errorCode === "666" || errorCode === "667";
       const title = err?.data?.head;
       const message = err?.data?.message ?? "Failed to load image";
       setErrorTitle(title);
       setError(message);
-      setShowBuyAction(requiresPurchase);
+      setShowBuyAction(canBuy);
+      setLockedProductId(deniedProductId);
       setErrorSheetVisible(true);
     } finally {
       setLoading(false);
@@ -95,6 +101,7 @@ const ImageDetailScreen = () => {
       params: {
         modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-image",
         modelId: String(modelId ?? id),
+        productId: lockedProductId,
         title: "Image Access",
         returnTo: `/image/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
       },

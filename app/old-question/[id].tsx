@@ -2,6 +2,7 @@ import OldCardUI from "@/components/old-question/old-card-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import OldService, { type OldQuestion } from "@/lib/services/old-service";
+import { extractDeniedProductId } from "@/lib/utils/product-access";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
@@ -33,6 +34,7 @@ const OldQuestionDetailScreen = () => {
   const [errorTitle, setErrorTitle] = useState("Old Question Error");
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
+  const [lockedProductId, setLockedProductId] = useState<string | undefined>();
   const [question, setQuestion] = useState<OldQuestion | null>(null);
 
   const fetchQuestion = useCallback(async () => {
@@ -48,6 +50,7 @@ const OldQuestionDetailScreen = () => {
       setErrorTitle("Old Question Error");
       setErrorSheetVisible(false);
       setShowBuyAction(false);
+      setLockedProductId(undefined);
       const data = await OldService.getOldQuestionById(id, "old-question", id);
       setQuestion(data);
     } catch (err: any) {
@@ -55,15 +58,18 @@ const OldQuestionDetailScreen = () => {
       const message =
         err?.data?.message ?? err?.message ?? "Failed to load old question";
       const errorCode = String(err?.data?.code ?? "");
+      const deniedProductId = extractDeniedProductId(err?.data);
       const requiresPurchase =
         err?.data?.requiresPurchase === true ||
         errorCode === "666" ||
+        errorCode === "667" ||
         /purchase/i.test(message);
 
       setErrorTitle(title);
       setError(message);
       setErrorSheetVisible(true);
       setShowBuyAction(requiresPurchase);
+      setLockedProductId(deniedProductId);
     } finally {
       setLoading(false);
     }
@@ -105,6 +111,7 @@ const OldQuestionDetailScreen = () => {
       params: {
         modelType: "old-question",
         modelId: String(id),
+        productId: lockedProductId,
         title: "Old Question Access",
         returnTo: `/old-question/${id}${courseId ? `?courseId=${courseId}` : ""}`,
       },

@@ -9,7 +9,7 @@ export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
-  const TAB_BAR_VISIBLE_HEIGHT = 59;
+  const TAB_BAR_VISIBLE_HEIGHT = 50;
 
   // Create a wrapper component to handle icon rendering
   const IconWrapper = ({ name, focused, color, size }: any) => {
@@ -33,26 +33,22 @@ export default function TabsLayout() {
           borderTopWidth: 0,
           height: TAB_BAR_VISIBLE_HEIGHT + insets.bottom,
           paddingBottom: insets.bottom,
-          paddingTop: 6,
+          paddingTop: 1,
           position: "absolute",
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          bottom: 0,
           left: 0,
           right: 0,
-          elevation: 0,
         },
         tabBarBackground: () => (
           <LinearGradient
             colors={
               isDark
                 ? [
-                    "rgba(20, 20, 20, 0.500)",
+                    "rgba(20, 20, 20, 0.400)",
                     "rgba(10, 10, 10, 0.950)",
                     "rgb(0, 0, 0)",
                   ]
                 : [
-                    "rgba(255, 255, 255, 0.500)", // Top
+                    "rgba(255, 255, 255, 0.400)", // Top
                     "rgba(255, 255, 255, 0.950)", // Middle
                     "rgb(255, 255, 255)", // Bottom
                   ]
@@ -114,14 +110,14 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="search/index"
+        name="short/index"
         options={{
-          title: "Search",
-          href: "/search",
+          title: "Short",
+          href: "/short",
           tabBarIcon: ({ color, size, focused }) => (
             <View className="items-center justify-center">
               <IconWrapper
-                name="Search"
+                name="PlayCircle"
                 focused={focused}
                 color={color}
                 size={size}
@@ -135,14 +131,14 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="short/index"
+        name="community/index"
         options={{
-          title: "Short",
-          href: "/short",
+          title: "Community",
+          href: "/community",
           tabBarIcon: ({ color, size, focused }) => (
             <View className="items-center justify-center">
               <IconWrapper
-                name="PlayCircle"
+                name="Send"
                 focused={focused}
                 color={color}
                 size={size}

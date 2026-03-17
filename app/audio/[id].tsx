@@ -2,6 +2,7 @@ import AudioDetailUI from "@/components/audio/audio-detail-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
+import { extractDeniedProductId } from "@/lib/utils/product-access";
 import AudioService, { type CourseAudio } from "@/lib/services/audio-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -30,6 +31,7 @@ const AudioDetailScreen = () => {
   const [audio, setAudio] = useState<CourseAudio | null>(null);
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
+  const [lockedProductId, setLockedProductId] = useState<string | undefined>();
 
   const fetchAudio = useCallback(async () => {
     if (!id || !courseId) {
@@ -45,6 +47,7 @@ const AudioDetailScreen = () => {
       setErrorTitle("Audio Error");
       setErrorSheetVisible(false);
       setShowBuyAction(false);
+      setLockedProductId(undefined);
 
       const res = await AudioService.getById(
         courseId,
@@ -54,13 +57,16 @@ const AudioDetailScreen = () => {
       );
       setAudio(res as unknown as CourseAudio);
     } catch (err: any) {
-      const requiresPurchase = err?.data?.code === "666";
+      const errorCode = String(err?.data?.code ?? "");
+      const deniedProductId = extractDeniedProductId(err?.data);
+      const canBuy = errorCode === "666" || errorCode === "667";
 
       const title = err?.data?.head;
       const message = err?.data?.message ?? "Failed to load audio";
       setErrorTitle(title);
       setError(message);
-      setShowBuyAction(requiresPurchase);
+      setShowBuyAction(canBuy);
+      setLockedProductId(deniedProductId);
       setErrorSheetVisible(true);
     } finally {
       setLoading(false);
@@ -96,6 +102,7 @@ const AudioDetailScreen = () => {
       params: {
         modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-audio",
         modelId: String(modelId ?? id),
+        productId: lockedProductId,
         title: "Audio Access",
         returnTo: `/audio/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
       },

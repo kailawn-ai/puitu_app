@@ -1,6 +1,7 @@
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
+import { extractDeniedProductId } from "@/lib/utils/product-access";
 import VideoDetailUI from "@/components/video/video-detail-ui";
 import VideoService, { type CourseVideo } from "@/lib/services/video-service";
 import { LinearGradient } from "expo-linear-gradient";
@@ -39,6 +40,7 @@ const VideoDetailScreen = () => {
   const [video, setVideo] = useState<CourseVideo | null>(null);
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
+  const [lockedProductId, setLockedProductId] = useState<string | undefined>();
   const [playerVisible, setPlayerVisible] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -115,6 +117,7 @@ const VideoDetailScreen = () => {
       setErrorTitle("Video Error");
       setErrorSheetVisible(false);
       setShowBuyAction(false);
+      setLockedProductId(undefined);
       setPlaybackError(null);
 
       res = await VideoService.getById(
@@ -132,12 +135,15 @@ const VideoDetailScreen = () => {
 
       const title = err?.data?.head || "Video Error";
       const message = err?.data?.message ?? "Failed to load video";
-      const requiresPurchase = err?.data?.code === "666";
+      const errorCode = String(err?.data?.code ?? "");
+      const deniedProductId = extractDeniedProductId(err?.data);
+      const canBuy = errorCode === "666" || errorCode === "667";
 
       setErrorTitle(title);
       setError(message);
       setErrorSheetVisible(true);
-      setShowBuyAction(requiresPurchase);
+      setShowBuyAction(canBuy);
+      setLockedProductId(deniedProductId);
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -197,11 +203,12 @@ const VideoDetailScreen = () => {
       params: {
         modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-video",
         modelId: String(modelId ?? id),
+        productId: lockedProductId,
         title: "Video Access",
         returnTo: `/video/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
       },
     });
-  }, [courseId, id, modelId, modelType, router]);
+  }, [courseId, id, lockedProductId, modelId, modelType, router]);
 
   const handleRetry = useCallback(() => {
     setPlaybackError(null);

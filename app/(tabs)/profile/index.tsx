@@ -62,7 +62,7 @@ const ProfileScreen = () => {
     email: storedUser?.email || "No email",
     avatar:
       storedUser?.profile_image ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
+      "https://cdn-icons-png.flaticon.com/512/9187/9187532.png",
     joinDate: "Joined October 2024",
     level: "Intermediate Learner",
     points: 1250,
