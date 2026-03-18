@@ -2,10 +2,12 @@ import auth from "@react-native-firebase/auth";
 import messaging, {
   FirebaseMessagingTypes,
 } from "@react-native-firebase/messaging";
+import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { AuthService } from "./auth-service";
+import { resolveNotificationRoute } from "../utils/notification-routing";
 
 const FCM_TOKEN_KEY = "fcm_token";
 const FCM_TOKEN_SENT_KEY = "fcm_token_sent";
@@ -65,6 +67,7 @@ class FCMServiceClass {
       await this.ensureRemoteMessagesRegistration();
       await this.refreshToken();
       this.configureMessageHandlers();
+      await this.handleLoginSuccess();
 
       this.isInitialized = true;
       console.log("FCM initialized successfully.");
@@ -141,7 +144,7 @@ class FCMServiceClass {
     this.notificationTapSubscription =
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data;
-        console.log("Notification tapped:", data);
+        this.handleNotificationDataOpen(data);
       });
   }
 
@@ -197,7 +200,22 @@ class FCMServiceClass {
   private handleRemoteMessageOpen(
     message: FirebaseMessagingTypes.RemoteMessage,
   ): void {
-    console.log("Notification opened:", message.data || {});
+    this.handleNotificationDataOpen(message.data);
+  }
+
+  private handleNotificationDataOpen(data?: Record<string, unknown>): void {
+    console.log("Notification opened:", data || {});
+
+    const route = resolveNotificationRoute(data);
+    if (!route) {
+      return;
+    }
+
+    try {
+      router.push(route as never);
+    } catch (error) {
+      console.error("Failed to navigate from notification:", error);
+    }
   }
 
   async getCurrentToken(): Promise<string | null> {
@@ -269,9 +287,17 @@ class FCMServiceClass {
 
   async sendTokenToBackend(token: string): Promise<boolean> {
     try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        return false;
+      }
+
       const response = await AuthService.updateFcmToken(token);
       if (response.status === "success") {
-        await SecureStore.setItemAsync(FCM_TOKEN_SENT_KEY, "true");
+        await SecureStore.setItemAsync(
+          FCM_TOKEN_SENT_KEY,
+          `${currentUser.uid}:${token}`,
+        );
         return true;
       }
       return false;
@@ -287,11 +313,14 @@ class FCMServiceClass {
   }
 
   async handleLoginSuccess(): Promise<boolean> {
+    const currentUser = auth().currentUser;
+    if (!currentUser) return false;
+
     const token = await this.getCurrentToken();
     if (!token) return false;
 
     const tokenSent = await SecureStore.getItemAsync(FCM_TOKEN_SENT_KEY);
-    if (tokenSent) return true;
+    if (tokenSent === `${currentUser.uid}:${token}`) return true;
 
     return this.sendTokenToBackend(token);
   }

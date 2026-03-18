@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api/api-client";
 import { RealtimeDBService } from "@/lib/services/realtime-db-service";
 import { NotificationItem, NotificationKind } from "@/components/notification/noti-card-ui";
+import { resolveNotificationRoute } from "@/lib/utils/notification-routing";
 
 export interface RawNotificationRecord {
   id?: string | number;
@@ -33,16 +34,6 @@ export interface AppNotificationItem extends NotificationItem {
 
 type NotificationMap = Record<string, RawNotificationRecord> | null;
 type NotificationCollection = NotificationMap | RawNotificationRecord[] | null;
-
-const pathByType: Record<string, string> = {
-  course: "/course",
-  new_course: "/course",
-  job: "/job",
-  old_question: "/old-question",
-  oldquestion: "/old-question",
-};
-
-const supportedInternalPaths = ["/course/", "/job/", "/old-question/"];
 
 const toArray = (value: NotificationCollection): RawNotificationRecord[] => {
   if (!value) return [];
@@ -105,61 +96,22 @@ const getKind = (item: RawNotificationRecord): NotificationKind => {
   return "general";
 };
 
-const buildRouteFromType = (
-  type: string | null | undefined,
-  id: string | number | null | undefined,
-): string | null => {
-  if (!type || id === null || id === undefined || id === "") return null;
-
-  const normalizedType = type.toLowerCase();
-  const basePath = pathByType[normalizedType];
-
-  if (!basePath) return null;
-
-  return `${basePath}/${id}`;
-};
-
 const buildRoute = (item: RawNotificationRecord): string | null => {
-  const routeFromData = getString(item.data?.route, item.data?.path, item.data?.screen);
-  if (
-    routeFromData &&
-    supportedInternalPaths.some((path) => routeFromData.startsWith(path))
-  ) {
-    return routeFromData;
-  }
-
-  const actionUrl = item.action_url?.trim();
-  if (actionUrl) {
-    const match = actionUrl.match(/^[a-z]+:\/\/([^/]+)\/(.+)$/i);
-    if (match) {
-      return `/${match[1]}/${match[2]}`;
-    }
-  }
-
-  const directLink = item.link?.trim();
-  if (
-    directLink &&
-    supportedInternalPaths.some((path) => directLink.startsWith(path))
-  ) {
-    return directLink;
-  }
-
-  const candidates: Array<[string | null | undefined, string | number | null | undefined]> = [
-    [item.content_type, item.content_id],
-    [item.reference_type, item.reference_id],
-    [typeof item.data?.content_type === "string" ? item.data.content_type : null, item.data?.content_id as string | number | null | undefined],
-    [typeof item.data?.reference_type === "string" ? item.data.reference_type : null, item.data?.reference_id as string | number | null | undefined],
-    [item.type, item.data?.course_id as string | number | null | undefined],
-    [item.type, item.data?.job_id as string | number | null | undefined],
-    [item.type, item.data?.old_question_id as string | number | null | undefined],
-  ];
-
-  for (const [type, id] of candidates) {
-    const route = buildRouteFromType(type, id);
-    if (route) return route;
-  }
-
-  return null;
+  return resolveNotificationRoute({
+    type: item.type,
+    action_url: item.action_url,
+    link: item.link,
+    content_type: item.content_type,
+    content_id: item.content_id,
+    reference_type: item.reference_type,
+    reference_id: item.reference_id,
+    route: item.data?.route as string | undefined,
+    path: item.data?.path as string | undefined,
+    screen: item.data?.screen as string | undefined,
+    course_id: item.data?.course_id as string | number | undefined,
+    job_id: item.data?.job_id as string | number | undefined,
+    old_question_id: item.data?.old_question_id as string | number | undefined,
+  });
 };
 
 const normalizeItems = (

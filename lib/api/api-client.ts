@@ -3,7 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import auth from "@react-native-firebase/auth";
 import { getDeviceInfo } from "../device/device-info";
 
-const API_BASE_URL = "http://192.168.1.41:8000/api/v1";
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+  "http://192.168.1.54:8000/api/v1";
 const API_TIMEOUT = 30000;
 
 interface RequestOptions extends RequestInit {

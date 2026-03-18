@@ -8,7 +8,6 @@ import CommunityMessageService, {
 import {
   CommunityService,
   type CommunityGroup,
-  type CommunityMessage,
 } from "@/lib/services/community-service";
 import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { LinearGradient } from "expo-linear-gradient";
@@ -55,24 +54,17 @@ const buildMessageKey = (
   return `${message.id}:${message.userId}:${message.createdAt ?? ""}:${message.body}`;
 };
 
-const toChatMessage = (
-  message: CommunityMessage | CommunityRealtimeMessage,
-): ChatMessage | null => {
+const toChatMessage = (message: CommunityRealtimeMessage): ChatMessage | null => {
   if (!message.body?.trim()) return null;
 
-  const messageId =
-    "db_message_id" in message && message.db_message_id
-      ? String(message.db_message_id)
-      : String(message.id);
-
   return {
-    id: messageId,
+    id: message.db_message_id ? String(message.db_message_id) : String(message.id),
     userId: message.user_id,
     body: message.body,
     senderName: message.user?.name ?? null,
     createdAt: message.created_at ?? null,
     timestamp:
-      "timestamp" in message && typeof message.timestamp === "number"
+      typeof message.timestamp === "number"
         ? message.timestamp
         : message.created_at
           ? new Date(message.created_at).getTime()
@@ -93,19 +85,6 @@ const sortMessages = (messages: ChatMessage[]) => {
 
     return left - right;
   });
-};
-
-const mergeMessages = (
-  current: ChatMessage[],
-  incoming: ChatMessage[],
-): ChatMessage[] => {
-  const next = new Map<string, ChatMessage>();
-
-  [...current, ...incoming].forEach((message) => {
-    next.set(buildMessageKey(message), message);
-  });
-
-  return sortMessages(Array.from(next.values()));
 };
 
 const formatMessageTime = (value?: string | null, timestamp?: number | null) => {
@@ -149,21 +128,13 @@ export default function CommunityChatScreen() {
     try {
       setLoading(true);
 
-      const [groupData, history, storedUser] = await Promise.all([
+      const [groupData, storedUser] = await Promise.all([
         CommunityService.getGroupById(id),
-        CommunityMessageService.fetchMessages(id, { limit: 60 }),
         getStoredAuthUser(),
       ]);
 
       setGroup(groupData);
       setCurrentUserId(storedUser?.id ?? user?.uid ?? null);
-      setMessages(
-        sortMessages(
-          history
-            .map((message) => toChatMessage(message))
-            .filter((message): message is ChatMessage => !!message),
-        ),
-      );
     } finally {
       setLoading(false);
     }
@@ -179,12 +150,11 @@ export default function CommunityChatScreen() {
     const unsubscribeMessages = CommunityMessageService.subscribeToRealtimeMessages(
       id,
       (items) => {
-        const incoming = items
+        const nextMessages = items
           .map((message) => toChatMessage(message))
           .filter((message): message is ChatMessage => !!message);
 
-        if (!incoming.length) return;
-        setMessages((current) => mergeMessages(current, incoming));
+        setMessages(sortMessages(nextMessages));
       },
     );
 
@@ -279,12 +249,7 @@ export default function CommunityChatScreen() {
 
       await CommunityMessageService.setTyping(id, false);
 
-      const message = await CommunityMessageService.sendMessage(id, { body });
-      const normalized = toChatMessage(message);
-
-      if (normalized) {
-        setMessages((current) => mergeMessages(current, [normalized]));
-      }
+      await CommunityMessageService.sendMessage(id, { body });
     } finally {
       setSending(false);
     }
