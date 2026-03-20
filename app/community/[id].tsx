@@ -29,6 +29,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -54,11 +55,15 @@ const buildMessageKey = (
   return `${message.id}:${message.userId}:${message.createdAt ?? ""}:${message.body}`;
 };
 
-const toChatMessage = (message: CommunityRealtimeMessage): ChatMessage | null => {
+const toChatMessage = (
+  message: CommunityRealtimeMessage,
+): ChatMessage | null => {
   if (!message.body?.trim()) return null;
 
   return {
-    id: message.db_message_id ? String(message.db_message_id) : String(message.id),
+    id: message.db_message_id
+      ? String(message.db_message_id)
+      : String(message.id),
     userId: message.user_id,
     body: message.body,
     senderName: message.user?.name ?? null,
@@ -87,7 +92,10 @@ const sortMessages = (messages: ChatMessage[]) => {
   });
 };
 
-const formatMessageTime = (value?: string | null, timestamp?: number | null) => {
+const formatMessageTime = (
+  value?: string | null,
+  timestamp?: number | null,
+) => {
   const date = timestamp ? new Date(timestamp) : value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
 
@@ -145,18 +153,28 @@ export default function CommunityChatScreen() {
   }, [loadChat]);
 
   useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        router.back();
+        return true;
+      },
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
+
+  useEffect(() => {
     if (!id) return;
 
-    const unsubscribeMessages = CommunityMessageService.subscribeToRealtimeMessages(
-      id,
-      (items) => {
+    const unsubscribeMessages =
+      CommunityMessageService.subscribeToRealtimeMessages(id, (items) => {
         const nextMessages = items
           .map((message) => toChatMessage(message))
           .filter((message): message is ChatMessage => !!message);
 
         setMessages(sortMessages(nextMessages));
-      },
-    );
+      });
 
     const unsubscribeTyping = CommunityMessageService.subscribeToTyping(
       id,
@@ -259,7 +277,9 @@ export default function CommunityChatScreen() {
     return (
       <LinearGradient
         colors={
-          colorScheme === "dark" ? ["#0B0F19", "#171717"] : ["#F8FAFC", "#E2E8F0"]
+          colorScheme === "dark"
+            ? ["#0B0F19", "#171717"]
+            : ["#F8FAFC", "#E2E8F0"]
         }
         locations={[0, 1]}
         start={{ x: 0.5, y: 1 }}
@@ -294,8 +314,8 @@ export default function CommunityChatScreen() {
         style={{ flex: 1 }}
       >
         <View
-          className="border-b border-white/40 px-4 pb-4 dark:border-secondary-700"
-          style={{ paddingTop: insets.top + 8 }}
+          className="border-b border-white/40 px-4 pb-4 dark:border-secondary-700 bg-white/65 dark:bg-black/65"
+          style={{ paddingTop: insets.top + 4 }}
         >
           <View className="flex-row items-center">
             <BackButton onPress={() => router.back()} />
@@ -330,14 +350,12 @@ export default function CommunityChatScreen() {
             </View>
 
             <View className="h-11 w-11 items-center justify-center rounded-full bg-white/70 dark:bg-secondary-800">
-              <Info size={18} color={colorScheme === "dark" ? "#FFFFFF" : "#111827"} />
+              <Info
+                size={18}
+                color={colorScheme === "dark" ? "#FFFFFF" : "#111827"}
+              />
             </View>
           </View>
-
-          <Text className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            {typingText ??
-              "Hybrid WhatsApp + Telegram feel, powered by your community realtime channel."}
-          </Text>
         </View>
 
         <FlatList
@@ -364,7 +382,8 @@ export default function CommunityChatScreen() {
                 No messages yet
               </Text>
               <Text className="mt-2 text-center text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Start the conversation and this group will come alive in realtime.
+                Start the conversation and this group will come alive in
+                realtime.
               </Text>
             </View>
           }
@@ -373,10 +392,10 @@ export default function CommunityChatScreen() {
         />
 
         <View
-          className="border-t border-white/40 bg-white/90 px-4 pt-3 dark:border-secondary-700 dark:bg-secondary-900/95"
+          className="px-4 pt-3"
           style={{ paddingBottom: insets.bottom + 10 }}
         >
-          <View className="flex-row items-end rounded-[28px] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-secondary-700 dark:bg-secondary-800">
+          <View className="flex-row items-end rounded-[28px] border border-slate-200 bg-slate-50 px-3 py-1 dark:border-secondary-700 dark:bg-secondary-800">
             <TextInput
               value={draft}
               onChangeText={handleDraftChange}
@@ -384,7 +403,7 @@ export default function CommunityChatScreen() {
               placeholderTextColor="#94A3B8"
               multiline
               textAlignVertical="top"
-              className="max-h-28 flex-1 px-2 text-[15px] leading-6 text-slate-900 dark:text-white"
+              className="max-h-20 flex-1 px-2 text-[15px] leading-6 text-slate-900 dark:text-white"
             />
 
             <TouchableOpacity

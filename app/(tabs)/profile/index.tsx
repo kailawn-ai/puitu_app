@@ -4,7 +4,7 @@ import {
   type StoredAuthUser,
 } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   Award,
   Bell,
@@ -14,6 +14,7 @@ import {
   CreditCard,
   Download,
   Globe,
+  GraduationCap,
   Heart,
   HelpCircle,
   Lock,
@@ -57,6 +58,12 @@ const ProfileScreen = () => {
     loadStoredUser();
   }, [loadStoredUser]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStoredUser();
+    }, [loadStoredUser]),
+  );
+
   const userData = {
     name: storedUser?.name || "User",
     email: storedUser?.email || "No email",
@@ -98,7 +105,11 @@ const ProfileScreen = () => {
       title: "Account",
       items: [
         { icon: User, label: "Edit Profile", color: "#7A25FF" },
-        { icon: Mail, label: "Email Preferences", color: "#10B981" },
+        {
+          icon: GraduationCap,
+          label: "Manage Qualification",
+          color: "#10B981",
+        },
         {
           icon: Bell,
           label: "Notifications",
@@ -153,27 +164,6 @@ const ProfileScreen = () => {
     setRefreshing(true);
     await loadStoredUser();
     setRefreshing(false);
-  };
-
-  const handleDeleteAccount = () => {
-    alert.showWarning(
-      "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            // Implement account deletion logic
-            alert.showWarning(
-              "Account Deletion",
-              "This feature is coming soon.",
-            );
-          },
-        },
-      ],
-    );
   };
 
   const renderStatItem = (stat: any, index: number) => (
@@ -278,8 +268,8 @@ const ProfileScreen = () => {
                     onPress={() => {
                       if (item.label === "Dark Mode") {
                         toggleColorScheme();
-                      } else if (item.label === "My Courses") {
-                        router.push("/course");
+                      } else if (item.label === "Manage Qualification") {
+                        router.push("/qualification/manage");
                       } else if (item.label === "Edit Profile") {
                         router.push("/profile/edit");
                       }

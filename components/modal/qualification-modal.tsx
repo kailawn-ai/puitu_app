@@ -7,10 +7,9 @@ import { Check, Search, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
+  Animated,
   FlatList,
   Modal,
-  StyleSheet,
   Text,
   TextInput,
   ToastAndroid,
@@ -18,8 +17,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const { height } = Dimensions.get("window");
 
 interface QualificationModalProps {
   visible: boolean;
@@ -36,6 +33,7 @@ const QualificationModal = ({
 }: QualificationModalProps) => {
   const insets = useSafeAreaInsets();
   const alert = useAlert();
+  const backdropOpacity = React.useRef(new Animated.Value(0)).current;
   const [searchQuery, setSearchQuery] = useState("");
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,6 +77,14 @@ const QualificationModal = ({
     }
   }, [visible, selectedIds]);
 
+  useEffect(() => {
+    Animated.timing(backdropOpacity, {
+      toValue: visible ? 0.8 : 0,
+      duration: visible ? 220 : 160,
+      useNativeDriver: true,
+    }).start();
+  }, [backdropOpacity, visible]);
+
   const handleSearch = (text: string) => {
     setSearchQuery(text);
     setQualifications([]);
@@ -113,6 +119,15 @@ const QualificationModal = ({
     onClose();
   };
 
+  const selectedQualifications = selected.map((id) => {
+    const qualification = qualifications.find((item) => item.id === id);
+
+    return {
+      id,
+      name: qualification?.name ?? `Qualification ${id}`,
+    };
+  });
+
   return (
     <Modal
       visible={visible}
@@ -120,55 +135,90 @@ const QualificationModal = ({
       transparent={true}
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Qualifications</Text>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.modalCloseBtn}
-            >
+      <View className="flex-1 justify-end">
+        <Animated.View
+          pointerEvents="none"
+          className="absolute inset-0 bg-black/85"
+          style={{ opacity: backdropOpacity }}
+        />
+        <View className="h-4/5 rounded-t-lg bg-background shadow-hard">
+          <View className="flex-row items-center justify-between rounded-t-lg border-b border-primary-600 bg-primary px-5 py-5">
+            <Text className="text-lg font-bold text-text-light">
+              Select Qualifications
+            </Text>
+            <TouchableOpacity onPress={handleClose} className="p-1">
               <X color="#fff" size={24} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.searchContainer}>
-            <Search color="#888" size={20} style={styles.searchIcon} />
+          <View className="mx-4 my-4 flex-row items-center rounded-full border border-border bg-background-card px-4 py-1">
+            <Search color="#737373" size={20} />
             <TextInput
-              style={styles.searchInput}
+              className="ml-2.5 h-11 flex-1 text-base text-text"
               placeholder="Search qualifications..."
-              placeholderTextColor="#888"
+              placeholderTextColor="#737373"
               value={searchQuery}
               onChangeText={handleSearch}
             />
           </View>
 
+          {selectedQualifications.length > 0 && (
+            <View className="mb-3 pl-1">
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={selectedQualifications}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <View className="mr-2 flex-row items-center rounded-full border border-primary-200 bg-primary-50 px-3 py-2">
+                    <Text
+                      className="max-w-[160px] text-sm font-medium text-primary-700"
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <TouchableOpacity
+                      className="ml-2 h-5 w-5 items-center justify-center rounded-full bg-primary-100"
+                      onPress={() => toggleQualification(item.id)}
+                    >
+                      <X color="#4A00B3" size={12} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            </View>
+          )}
+
           <FlatList
-            style={{ flex: 1 }}
+            className="flex-1"
             data={qualifications}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[
-                  styles.qualificationItem,
-                  selected.includes(item.id) &&
-                    styles.qualificationItemSelected,
-                ]}
+                className={`mb-2 flex-row items-center justify-between rounded-md border px-4 py-4 ${
+                  selected.includes(item.id)
+                    ? "border-primary-600 bg-primary"
+                    : "border-border bg-background-card"
+                }`}
                 onPress={() => toggleQualification(item.id)}
               >
-                <View style={styles.qualificationInfo}>
+                <View className="mr-2.5 flex-1">
                   <Text
-                    style={[
-                      styles.qualificationName,
-                      selected.includes(item.id) &&
-                        styles.qualificationNameSelected,
-                    ]}
+                    className={`mb-1 text-base font-semibold ${
+                      selected.includes(item.id)
+                        ? "text-text-light"
+                        : "text-text"
+                    }`}
                   >
                     {item.name}
                   </Text>
                   {item.description && (
                     <Text
-                      style={styles.qualificationDescription}
+                      className={`text-xs ${
+                        selected.includes(item.id)
+                          ? "text-primary-100"
+                          : "text-text-muted"
+                      }`}
                       numberOfLines={1}
                     >
                       {item.description}
@@ -182,25 +232,35 @@ const QualificationModal = ({
             onEndReachedThreshold={0.3}
             ListFooterComponent={() =>
               loading ? (
-                <ActivityIndicator style={styles.loader} color="#a855f7" />
+                <ActivityIndicator className="my-5" color="#7A25FF" />
               ) : null
             }
             ListEmptyComponent={() =>
               !loading && (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No qualifications found</Text>
+                <View className="items-center justify-center px-10 py-10">
+                  <Text className="text-base text-text-muted">
+                    No qualifications found
+                  </Text>
                 </View>
               )
             }
-            contentContainerStyle={styles.listContent}
+            contentContainerClassName="px-4 pb-5"
           />
 
           <View
-            style={[styles.modalFooter, { paddingBottom: insets.bottom + 15 }]}
+            className="flex-row items-center justify-between border-t border-border bg-background px-4 pt-4"
+            style={{ paddingBottom: insets.bottom + 10 }}
           >
-            <Text style={styles.selectedCount}>{selected.length} selected</Text>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <Text className="text-sm font-medium text-text-muted">
+              {selected.length} selected
+            </Text>
+            <TouchableOpacity
+              className="rounded-full bg-primary px-8 py-3 shadow-button"
+              onPress={handleSave}
+            >
+              <Text className="text-base font-semibold text-text-light">
+                Save
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -208,125 +268,5 @@ const QualificationModal = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: height * 0.8,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    backgroundColor: "#a855f7",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  modalCloseBtn: {
-    padding: 5,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    backgroundColor: "#f5f5f5",
-    margin: 15,
-    borderRadius: 10,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 16,
-    color: "#333",
-  },
-  listContent: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-  },
-  qualificationItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 15,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  qualificationItemSelected: {
-    backgroundColor: "#a855f7",
-  },
-  qualificationInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  qualificationName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  qualificationNameSelected: {
-    color: "#fff",
-  },
-  qualificationDescription: {
-    fontSize: 12,
-    color: "#666",
-  },
-  loader: {
-    marginVertical: 20,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#999",
-  },
-  modalFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    backgroundColor: "#fff",
-  },
-  selectedCount: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-  },
-  saveButton: {
-    backgroundColor: "#a855f7",
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
 
 export default QualificationModal;

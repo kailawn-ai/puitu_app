@@ -35,7 +35,7 @@ export default function JobDetailHeroUI({
   const phone = job.detail?.phone_1 || job.detail?.phone_2 || null;
 
   return (
-    <View className="mx-3 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <View className="mx-3 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
       <View className="h-52 bg-zinc-100 dark:bg-zinc-800 items-center justify-center">
         {hasImage ? (
           <Image

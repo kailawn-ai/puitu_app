@@ -2,7 +2,6 @@ import { BackButton } from "@/components/ui/back-button";
 import { AuthService } from "@/lib/services/auth-service";
 import { AUTH_USER_STORE_KEYS } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
-import { getAuth } from "@react-native-firebase/auth";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -43,7 +42,6 @@ const SettingsScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colorScheme, toggleColorScheme } = useColorScheme();
-  const auth = getAuth();
 
   const [notifications, setNotifications] = React.useState(true);
   const [downloadOverWifi, setDownloadOverWifi] = React.useState(true);
@@ -182,7 +180,7 @@ const SettingsScreen = () => {
     <View className="flex-1 bg-background dark:bg-background-dark">
       <View
         className="px-5 flex-row items-center justify-between"
-        style={{ paddingTop: insets.top + 8 }}
+        style={{ paddingTop: insets.top + 2 }}
       >
         <BackButton onPress={() => router.back()} />
         <Text className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -209,8 +207,14 @@ const SettingsScreen = () => {
                     key={item.label}
                     activeOpacity={item.hasSwitch ? 1 : 0.75}
                     onPress={() => {
-                      if (!item.hasSwitch) return;
-                      onToggle(item.label);
+                      if (item.hasSwitch) {
+                        onToggle(item.label);
+                        return;
+                      }
+
+                      if (item.label === "Profile Details") {
+                        router.push("/profile/edit");
+                      }
                     }}
                     className={`px-4 py-4 flex-row items-center justify-between ${
                       index !== section.items.length - 1

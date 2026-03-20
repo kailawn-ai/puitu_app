@@ -9,13 +9,9 @@ import QuizQandaSection from "@/components/home/quiz-qanda-section";
 import NotificationSection from "@/components/notification/noti-section-ui";
 import { HamburgerMenu } from "@/components/ui/hamburger-menu";
 import { HomeResponse, HomeService } from "@/lib/services/home-service";
-import {
-  AppNotificationItem,
-  NotificationService,
-} from "@/lib/services/notification-service";
 import { saveAuthUserToStore } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
-import { getAuth } from "@react-native-firebase/auth";
+import { useNotifications } from "@/providers/notification-provider";
 import { useRouter } from "expo-router";
 import { Bell, Search } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -31,19 +27,28 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColorScheme } from "nativewind";
 
 const HomeScreen = () => {
   const router = useRouter();
+  const { colorScheme } = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
   const alert = useAlert();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [homeData, setHomeData] = useState<HomeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
-  const [notificationLoading, setNotificationLoading] = useState(true);
-  const notificationUserId =
-    getAuth().currentUser?.uid || homeData?.current_user?.id || null;
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationLoading,
+    isLive: notificationsAreLive,
+    refreshNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications();
 
   useEffect(() => {
     loadHome();
@@ -58,53 +63,6 @@ const HomeScreen = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (!notificationUserId) {
-      setNotifications([]);
-      setNotificationLoading(false);
-      return;
-    }
-
-    setNotificationLoading(true);
-    let isMounted = true;
-    let hasRealtimeSnapshot = false;
-
-    const unsubscribe = NotificationService.subscribeToUserNotifications(
-      notificationUserId,
-      (items) => {
-        hasRealtimeSnapshot = true;
-        if (!isMounted) return;
-        setNotifications(items);
-        setNotificationLoading(false);
-      },
-      (error) => {
-        console.log("Notification subscription error:", error);
-        if (isMounted) {
-          setNotificationLoading(false);
-        }
-      },
-    );
-
-    NotificationService.fetchUserNotifications()
-      .then((items) => {
-        if (!isMounted || hasRealtimeSnapshot) return;
-        setNotifications(items);
-      })
-      .catch((error) => {
-        console.log("Notification fetch fallback failed:", error);
-      })
-      .finally(() => {
-        if (isMounted && !hasRealtimeSnapshot) {
-          setNotificationLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
-  }, [notificationUserId]);
-
   const loadHome = async () => {
     try {
       const data = await HomeService.getHome();
@@ -112,6 +70,7 @@ const HomeScreen = () => {
 
       if (data.current_user) {
         await saveAuthUserToStore(data.current_user, "system");
+        await refreshNotifications();
       }
     } catch (e) {
       console.log("Home load error:", e);
@@ -126,91 +85,39 @@ const HomeScreen = () => {
     setRefreshing(false);
   };
 
-  const unreadCount = notifications.filter((item) => item.unread).length;
-
   const closeNotifications = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowNotifications(false);
   };
 
-  const handleNotificationPress = async (item: AppNotificationItem) => {
-    const previousNotifications = notifications;
-
-    try {
-      if (item.unread) {
-        setNotifications((prev) =>
-          prev.map((notification) =>
-            notification.id === item.id
-              ? { ...notification, unread: false }
-              : notification,
-          ),
-        );
-        await NotificationService.markAsRead(item.id);
-      }
-    } catch (error) {
-      console.log("Mark notification as read failed:", error);
-      setNotifications(previousNotifications);
-    } finally {
-      closeNotifications();
-    }
+  const handleNotificationPress = async (
+    item: (typeof notifications)[number],
+  ) => {
+    await markAsRead(item);
+    closeNotifications();
 
     if (item.route) {
       router.push(item.route as never);
     }
   };
 
-  const handleMarkAsReadNotification = async (item: AppNotificationItem) => {
-    if (!item.unread) return;
-
-    const previousNotifications = notifications;
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === item.id
-          ? { ...notification, unread: false }
-          : notification,
-      ),
-    );
-
-    try {
-      await NotificationService.markAsRead(item.id);
-    } catch (error) {
-      console.log("Swipe mark as read failed:", error);
-      setNotifications(previousNotifications);
-    }
+  const handleMarkAsReadNotification = async (
+    item: (typeof notifications)[number],
+  ) => {
+    await markAsRead(item);
   };
 
   const handleMarkAllRead = async () => {
-    if (unreadCount === 0) return;
-
-    const previousNotifications = notifications;
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, unread: false })),
-    );
-
-    try {
-      await NotificationService.markAllAsRead();
-    } catch (error) {
-      console.log("Mark all notifications as read failed:", error);
-      setNotifications(previousNotifications);
-    }
+    await markAllAsRead();
   };
 
-  const performDeleteNotification = async (item: AppNotificationItem) => {
-    const previousNotifications = notifications;
-
-    setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== item.id),
-    );
-
-    try {
-      await NotificationService.deleteNotification(item.id);
-    } catch (error) {
-      console.log("Delete notification failed:", error);
-      setNotifications(previousNotifications);
-    }
+  const performDeleteNotification = async (
+    item: (typeof notifications)[number],
+  ) => {
+    await deleteNotification(item);
   };
 
-  const handleDeleteNotification = (item: AppNotificationItem) => {
+  const handleDeleteNotification = (item: (typeof notifications)[number]) => {
     alert.showWarning(
       "Delete Notification",
       "Remove this notification from your history?",
@@ -283,7 +190,7 @@ const HomeScreen = () => {
               onPress={() => router.push("/search")}
               className="mr-2 p-2 bg-white dark:bg-secondary-800 rounded-xl"
             >
-              <Search size={22} color="#6B7280" />
+              <Search size={22} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -295,7 +202,7 @@ const HomeScreen = () => {
               }}
               className="p-2 bg-white dark:bg-secondary-800 rounded-xl relative"
             >
-              <Bell size={22} color="#6B7280" />
+              <Bell size={22} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
               {unreadCount > 0 && (
                 <View className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full items-center justify-center">
                   <Text className="text-[10px] font-bold text-white">
@@ -313,15 +220,19 @@ const HomeScreen = () => {
           loading={notificationLoading}
           notifications={notifications}
           unreadCount={unreadCount}
-          isLive={!!notificationUserId}
+          isLive={notificationsAreLive}
           onClose={closeNotifications}
+          onViewAll={() => {
+            closeNotifications();
+            router.push("/notifications");
+          }}
           onMarkAllRead={handleMarkAllRead}
           onPressItem={handleNotificationPress}
           onMarkAsReadItem={(item) =>
-            handleMarkAsReadNotification(item as AppNotificationItem)
+            handleMarkAsReadNotification(item as (typeof notifications)[number])
           }
           onDeleteItem={(item) =>
-            handleDeleteNotification(item as AppNotificationItem)
+            handleDeleteNotification(item as (typeof notifications)[number])
           }
         />
       )}

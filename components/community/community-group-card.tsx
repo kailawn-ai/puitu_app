@@ -26,7 +26,7 @@ export default function CommunityGroupCard({
     <TouchableOpacity
       activeOpacity={0.92}
       onPress={() => onPress?.(group)}
-      className="mb-4 rounded-[28px] border border-slate-200 bg-white p-4 dark:border-secondary-700 dark:bg-secondary-800"
+      className="mb-4 rounded-[28px] border border-slate-200 bg-white/70 p-4 dark:border-secondary-700 dark:bg-secondary-800"
     >
       <View className="flex-row items-center">
         <View
@@ -63,7 +63,7 @@ export default function CommunityGroupCard({
                   className={`flex-row items-center self-center rounded-full px-4 py-3 ${
                     joining
                       ? "bg-slate-200 dark:bg-secondary-700"
-                      : "bg-primary-500"
+                      : "bg-cyan-500"
                   }`}
                 >
                   <Plus size={16} color="#FFFFFF" />

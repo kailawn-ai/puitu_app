@@ -21,7 +21,7 @@ interface BackButtonProps {
 export function BackButton({
   onPress,
   color,
-  size = 22,
+  size = 26,
   className = "",
 }: BackButtonProps) {
   const navigation = useNavigation();
@@ -42,7 +42,7 @@ export function BackButton({
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.85}
-      className={`w-12 h-12 rounded-full overflow-hidden ${className}`}
+      className={`w-16 h-16 rounded-full overflow-hidden ${className}`}
     >
       <BlurView
         intensity={110}

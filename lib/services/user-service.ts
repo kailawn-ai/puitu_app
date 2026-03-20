@@ -1,5 +1,26 @@
 import { apiClient } from "@/lib/api/api-client";
 
+export interface UserProfile {
+  id?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  dob?: string | null;
+  email?: string | null;
+  country_code?: string | null;
+  country?: string | null;
+  state?: string | null;
+  district?: string | null;
+  town?: string | null;
+  profile_image?: string | null;
+  qualifications?:
+    | number[]
+    | Array<{
+        id?: number | null;
+        name?: string | null;
+      }>;
+  is_active?: boolean;
+}
+
 export interface UserPayload {
   name?: string;
   phone?: string;
@@ -30,14 +51,13 @@ export const UserService = {
    * ---------------------------------------
    */
 
-  async getMe() {
-    const res = await apiClient.get("/create-user/me");
+  async getMe(): Promise<UserProfile> {
+    const res = await apiClient.get<UserProfile>("/create-user/me");
     return res.data;
   },
 
-  async updateMe(payload: UserPayload) {
-    const res = await apiClient.put("/create-user/me", payload);
-    console.log("updateMe response:", res);
+  async updateMe(payload: UserPayload): Promise<UserProfile> {
+    const res = await apiClient.put<UserProfile>("/create-user/me", payload);
 
     return res.data;
   },

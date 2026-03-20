@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { FCMService } from "@/lib/services/fcm-service";
 import { AlertProvider } from "@/providers/alert-provider";
 import { AuthGuard } from "@/providers/auth-guard";
+import { NotificationProvider } from "@/providers/notification-provider";
 import { useDrawerStore } from "@/store/drawer-store";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -30,19 +31,21 @@ export default function RootLayout() {
     <AuthProvider>
       <AuthGuard>
         <AlertProvider>
-          <StatusBar style="auto" backgroundColor="transparent" translucent />
-          <View className="flex-1">
-            <Stack
-              screenOptions={{
-                headerShown: false,
-              }}
-            >
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-            </Stack>
-            <DrawerWrapper />
-          </View>
+          <NotificationProvider>
+            <StatusBar style="auto" backgroundColor="transparent" translucent />
+            <View className="flex-1">
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                }}
+              >
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+              </Stack>
+              <DrawerWrapper />
+            </View>
+          </NotificationProvider>
         </AlertProvider>
       </AuthGuard>
     </AuthProvider>

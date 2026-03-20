@@ -1,6 +1,10 @@
 import QualificationModal from "@/components/modal/qualification-modal";
 import { useSound } from "@/hook/use-sound";
-import { UserPayload, UserService } from "@/lib/services/user-service";
+import {
+  UserPayload,
+  UserProfile,
+  UserService,
+} from "@/lib/services/user-service";
 import {
   markProfileOnboardingCompleted,
   resolveOnboardingIdentity,
@@ -17,6 +21,8 @@ import {
   BackHandler,
   Dimensions,
   Image,
+  type ImageSourcePropType,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -33,9 +39,13 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -47,6 +57,14 @@ const SECURE_KEYS = {
   AUTH_IMAGE: "auth_image",
   AUTH_PROVIDER: "auth_provider",
 } as const;
+
+const ONBOARDING_BG_IMAGES = [
+  require("../../assets/onboarding/bg/bg1.jpg"),
+  require("../../assets/onboarding/bg/bg2.avif"),
+] as const;
+
+const getOnboardingBackground = (index: number): ImageSourcePropType =>
+  ONBOARDING_BG_IMAGES[index % ONBOARDING_BG_IMAGES.length];
 
 const DATA = [
   {
@@ -132,6 +150,9 @@ const DATA = [
   },
 ];
 
+const QUALIFICATION_INDEX = DATA.length - 1;
+const REQUIRED_SKIP_DISABLED_INDEXES = [0, 1, 2, QUALIFICATION_INDEX];
+
 type FormData = {
   name: string;
   email: string;
@@ -148,6 +169,7 @@ const OnboardingItem = ({
   item,
   index,
   translateX,
+  keyboardProgress,
   value,
   onChangeText,
   onQualificationPress,
@@ -156,6 +178,7 @@ const OnboardingItem = ({
   item: (typeof DATA)[0];
   index: number;
   translateX: SharedValue<number>;
+  keyboardProgress: SharedValue<number>;
   value: string | number[];
   onChangeText: (text: string) => void;
   onQualificationPress?: () => void;
@@ -172,20 +195,39 @@ const OnboardingItem = ({
       opacity: interpolate(translateX.value, inputRange, [0, 1, 0]),
       transform: [
         {
-          translateY: interpolate(translateX.value, inputRange, [50, 0, 50]),
+          translateY:
+            interpolate(translateX.value, inputRange, [50, 0, 50]) -
+            interpolate(keyboardProgress.value, [0, 1], [0, 150], "clamp"),
         },
       ],
     };
   });
 
+  const imageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(keyboardProgress.value, [0, 1], [1, 0], "clamp"),
+    transform: [
+      {
+        translateY: interpolate(
+          keyboardProgress.value,
+          [0, 1],
+          [0, -24],
+          "clamp",
+        ),
+      },
+      {
+        scale: interpolate(keyboardProgress.value, [0, 1], [1, 0.92], "clamp"),
+      },
+    ],
+  }));
+
   return (
     <View style={styles.page}>
       <Animated.View style={[styles.contentContainer, animatedStyle]}>
-        <View style={styles.imageWrapper}>
+        <Animated.View style={[styles.imageWrapper, imageAnimatedStyle]}>
           <View style={styles.imageCircle}>
             <Image source={item.image} style={styles.personImg} />
           </View>
-        </View>
+        </Animated.View>
 
         <View style={styles.textSection}>
           <Text style={styles.title}>{item.title}</Text>
@@ -247,11 +289,52 @@ const PaginationDot = ({
   return <Animated.View style={[styles.dot, dotStyle]} />;
 };
 
+const MorphingBackgroundImage = ({
+  index,
+  translateX,
+  source,
+}: {
+  index: number;
+  translateX: SharedValue<number>;
+  source: ImageSourcePropType;
+}) => {
+  const animatedImageStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * width,
+      index * width,
+      (index + 1) * width,
+    ];
+
+    return {
+      opacity: interpolate(translateX.value, inputRange, [0, 1, 0], "clamp"),
+      transform: [
+        {
+          scale: interpolate(
+            translateX.value,
+            inputRange,
+            [1.08, 1, 1.08],
+            "clamp",
+          ),
+        },
+      ],
+    };
+  });
+
+  return (
+    <Animated.Image
+      source={source}
+      resizeMode="cover"
+      style={[styles.imageCircleBackground, animatedImageStyle]}
+    />
+  );
+};
+
 const OnboardingScreen = () => {
   const alert = useAlert();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const translateX = useSharedValue(0);
+  const keyboardProgress = useSharedValue(0);
   const flatListRef = useRef<Animated.FlatList<any>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -315,6 +398,29 @@ const OnboardingScreen = () => {
     loadSavedData();
   }, []);
 
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const handleKeyboardShow = () => {
+      keyboardProgress.value = withTiming(1, { duration: 250 });
+    };
+
+    const handleKeyboardHide = () => {
+      keyboardProgress.value = withTiming(0, { duration: 220 });
+    };
+
+    const showSubscription = Keyboard.addListener(showEvent, handleKeyboardShow);
+    const hideSubscription = Keyboard.addListener(hideEvent, handleKeyboardHide);
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [keyboardProgress]);
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       translateX.value = event.contentOffset.x;
@@ -338,29 +444,18 @@ const OnboardingScreen = () => {
     setFormData((prev) => ({ ...prev, qualifications: ids }));
   };
 
+  const isSkipDisabled = REQUIRED_SKIP_DISABLED_INDEXES.includes(currentIndex);
+
   const handleSkip = () => {
+    if (isSkipDisabled) {
+      return;
+    }
+
     playClick();
-    alert.showWarning(
-      "Skip Onboarding",
-      "You can complete your profile later. Are you sure you want to skip?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Skip",
-          onPress: async () => {
-            playClick();
-            const identity = resolveOnboardingIdentity({
-              uid: getAuth().currentUser?.uid,
-              email: formData.email || null,
-              phone: formData.phone || null,
-            });
-            await markProfileOnboardingCompleted(identity);
-            router.replace("/home");
-          },
-          style: "destructive",
-        },
-      ],
-    );
+    flatListRef.current?.scrollToIndex({
+      index: QUALIFICATION_INDEX,
+      animated: true,
+    });
   };
 
   const handleNext = () => {
@@ -416,13 +511,13 @@ const OnboardingScreen = () => {
   }, [currentIndex]);
 
   const handleSubmit = async () => {
-    let response: any;
+    let response: UserProfile | null = null;
     // Validate required fields
     if (
       !formData.name ||
       !formData.email ||
       !formData.phone ||
-      !formData.qualifications
+      formData.qualifications.length === 0
     ) {
       playError();
       alert.showWarning(
@@ -464,16 +559,16 @@ const OnboardingScreen = () => {
       if (response !== null) {
         await saveAuthUserToStore(
           {
-            id: response?.data?.id ?? getAuth().currentUser?.uid ?? null,
-            name: response?.data?.name ?? formData.name,
-            email: response?.data?.email ?? formData.email,
-            phone: response?.data?.phone ?? formData.phone,
-            profile_image: response?.data?.profile_image ?? null,
-            country: response?.data?.country ?? formData.country,
-            state: response?.data?.state ?? formData.state,
-            district: response?.data?.district ?? formData.district,
-            town: response?.data?.town ?? formData.town,
-            is_active: response?.data?.is_active ?? true,
+            id: response?.id ?? getAuth().currentUser?.uid ?? null,
+            name: response?.name ?? formData.name,
+            email: response?.email ?? formData.email,
+            phone: response?.phone ?? formData.phone,
+            profile_image: response?.profile_image ?? null,
+            country: response?.country ?? formData.country,
+            state: response?.state ?? formData.state,
+            district: response?.district ?? formData.district,
+            town: response?.town ?? formData.town,
+            is_active: response?.is_active ?? true,
           },
           "system",
         );
@@ -487,13 +582,13 @@ const OnboardingScreen = () => {
 
         playSuccess();
         ToastAndroid.show(
-          response.message || "Profile updated successfully",
+          "Profile updated successfully",
           ToastAndroid.SHORT,
         );
         router.replace("/home");
       } else {
         playError();
-        alert.showError("Error", response?.message || "Something went wrong");
+        alert.showError("Error", "Something went wrong");
       }
     } catch (err: any) {
       playError();
@@ -518,6 +613,37 @@ const OnboardingScreen = () => {
       backgroundColor: interpolateColor(translateX.value, inputRange, colors),
     };
   });
+
+  const animatedHeroFrameStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(keyboardProgress.value, [0, 1], [1, 0], "clamp"),
+    transform: [
+      {
+        translateY: interpolate(
+          keyboardProgress.value,
+          [0, 1],
+          [0, -32],
+          "clamp",
+        ),
+      },
+      {
+        scale: interpolate(keyboardProgress.value, [0, 1], [1, 0.94], "clamp"),
+      },
+    ],
+  }));
+
+  const animatedPaginationStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(keyboardProgress.value, [0, 1], [1, 0.92], "clamp"),
+    transform: [
+      {
+        translateY: interpolate(
+          keyboardProgress.value,
+          [0, 1],
+          [0, -260],
+          "clamp",
+        ),
+      },
+    ],
+  }));
 
   return (
     <Animated.View style={[styles.container, animatedBackgroundStyle]}>
@@ -559,22 +685,38 @@ const OnboardingScreen = () => {
 
                 <TouchableOpacity
                   onPress={handleSkip}
-                  style={styles.skipButton}
+                  style={[
+                    styles.skipButton,
+                    isSkipDisabled && styles.skipButtonDisabled,
+                  ]}
+                  disabled={isSkipDisabled}
                 >
                   <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.imageCircleOne} />
+            <Animated.View
+              style={[styles.imageCircleOne, animatedHeroFrameStyle]}
+            >
+              {DATA.map((_, index) => (
+                <MorphingBackgroundImage
+                  key={`bg-${index}`}
+                  index={index}
+                  translateX={translateX}
+                  source={getOnboardingBackground(index)}
+                />
+              ))}
+              <View style={styles.imageCircleOverlay} />
+            </Animated.View>
 
-            <View style={styles.pagin}>
+            <Animated.View style={[styles.pagin, animatedPaginationStyle]}>
               <View style={styles.pagination}>
                 {DATA.map((_, i) => (
                   <PaginationDot key={i} index={i} translateX={translateX} />
                 ))}
               </View>
-            </View>
+            </Animated.View>
 
             <Animated.FlatList
               ref={flatListRef}
@@ -592,6 +734,7 @@ const OnboardingScreen = () => {
                   item={item}
                   index={index}
                   translateX={translateX}
+                  keyboardProgress={keyboardProgress}
                   value={
                     item.isQualification
                       ? formData.qualifications
@@ -692,6 +835,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
+  skipButtonDisabled: {
+    opacity: 0.4,
+  },
   skipText: {
     color: "#fff",
     fontSize: 14,
@@ -718,11 +864,11 @@ const styles = StyleSheet.create({
   },
   imageCircleOne: {
     position: "absolute",
-    top: 150,
+    top: 100,
     alignSelf: "center",
-    width: width * 0.5,
-    height: width * 0.5,
-    borderRadius: width * 0.25,
+    width: width * 0.6,
+    height: width * 0.7,
+    borderRadius: width * 0.09,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
@@ -730,16 +876,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
   },
+  imageCircleBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+  },
+  imageCircleOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
   imageCircle: {
     width: width * 0.5,
-    height: width * 0.5,
+    height: width * 0.9,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
   },
   personImg: {
-    width: "60%",
-    height: "60%",
+    top: -70,
+    width: "100%",
+    height: "100%",
     resizeMode: "contain",
   },
   textSection: {
@@ -775,12 +931,12 @@ const styles = StyleSheet.create({
   pagin: {
     flexDirection: "row",
     paddingVertical: 20,
-    marginTop: 350,
+    marginTop: 400,
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
     left: 0,
-    right: 0,
+    right: 10,
   },
   pagination: {
     flexDirection: "row",

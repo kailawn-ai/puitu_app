@@ -4,6 +4,7 @@ import auth from "@react-native-firebase/auth";
 import { getDeviceInfo } from "../device/device-info";
 
 const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL?.trim() ||
   process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
   "http://192.168.1.54:8000/api/v1";
 const API_TIMEOUT = 30000;
@@ -11,6 +12,7 @@ const API_TIMEOUT = 30000;
 interface RequestOptions extends RequestInit {
   timeout?: number;
   skipAuth?: boolean;
+  omitJsonContentType?: boolean;
 }
 
 interface ApiResponse<T = any> {
@@ -25,6 +27,14 @@ interface ApiError {
   status: number;
   data?: any;
 }
+
+export type UploadFileInput =
+  | string
+  | {
+      uri: string;
+      name?: string;
+      type?: string;
+    };
 
 class ApiClient {
   private async getHeaders(skipAuth = false): Promise<Record<string, string>> {
@@ -124,6 +134,7 @@ class ApiClient {
     const {
       timeout = API_TIMEOUT,
       skipAuth = false,
+      omitJsonContentType = false,
       ...fetchOptions
     } = options;
 
@@ -132,6 +143,10 @@ class ApiClient {
 
     try {
       const headers = await this.getHeaders(skipAuth);
+
+      if (omitJsonContentType) {
+        delete headers["Content-Type"];
+      }
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...fetchOptions,
@@ -221,33 +236,36 @@ class ApiClient {
 
   async uploadFile<T>(
     endpoint: string,
-    fileUri: string,
+    file: UploadFileInput,
     fieldName = "file",
     additionalData: Record<string, any> = {},
   ): Promise<ApiResponse<T>> {
     const formData = new FormData();
+    const filePayload =
+      typeof file === "string"
+        ? {
+            uri: file,
+            type: "image/jpeg",
+            name: file.split("/").pop() || "photo.jpg",
+          }
+        : {
+            uri: file.uri,
+            type: file.type || "application/octet-stream",
+            name: file.name || file.uri.split("/").pop() || "upload.file",
+          };
 
     // @ts-ignore
-    formData.append(fieldName, {
-      uri: fileUri,
-      type: "image/jpeg", // Adjust based on file type
-      name: fileUri.split("/").pop() || "photo.jpg",
-    });
+    formData.append(fieldName, filePayload);
 
     // Append additional data
     Object.keys(additionalData).forEach((key) => {
       formData.append(key, additionalData[key]);
     });
 
-    const headers = await this.getHeaders();
-
-    // Remove JSON headers for multipart/form-data
-    delete headers["Content-Type"];
-
     return this.request<T>(endpoint, {
       method: "POST",
       body: formData,
-      headers: headers as HeadersInit,
+      omitJsonContentType: true,
     });
   }
 

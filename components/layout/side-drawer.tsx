@@ -1,5 +1,6 @@
 // components/navigation/side-drawer.tsx
 import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
   Award,
@@ -11,14 +12,19 @@ import {
   Globe,
   Heart,
   HelpCircle,
+  HelpCircleIcon,
   Moon,
+  Save,
   Settings,
   Shield,
   Star,
+  Tag,
+  UserCog2Icon,
   Users,
   X,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
+import { useNotifications } from "@/providers/notification-provider";
 import React from "react";
 import {
   Animated,
@@ -43,6 +49,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const translateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const { unreadCount } = useNotifications();
 
   const [userData, setUserData] = React.useState({
     name: "User",
@@ -59,7 +66,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
         {
           icon: Settings,
           label: "Settings",
-          route: "/settings",
+          route: "/profile/settings",
           color: "#6B7280",
         },
         {
@@ -67,19 +74,13 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           label: "Notifications",
           route: "/notifications",
           color: "#EF4444",
-          badge: 3,
+          badge: unreadCount > 0 ? unreadCount : undefined,
         },
         {
           icon: Heart,
           label: "Favorites",
           route: "/favorites",
           color: "#EC4899",
-        },
-        {
-          icon: Download,
-          label: "Downloads",
-          route: "/downloads",
-          color: "#10B981",
         },
         {
           icon: Moon,
@@ -94,8 +95,8 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
       title: "Learning",
       items: [
         {
-          icon: Star,
-          label: "Achievements",
+          icon: Save,
+          label: "Saved Content",
           route: "/achievements",
           color: "#F59E0B",
         },
@@ -124,7 +125,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
       items: [
         {
           icon: HelpCircle,
-          label: "Help Center",
+          label: "Help 24X7",
           route: "/help",
           color: "#6B7280",
         },
@@ -135,15 +136,15 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           color: "#10B981",
         },
         {
-          icon: Globe,
-          label: "Language",
+          icon: HelpCircleIcon,
+          label: "Support",
           route: "/language",
           color: "#3B82F6",
           rightText: "English",
         },
         {
-          icon: CreditCard,
-          label: "Billing",
+          icon: UserCog2Icon,
+          label: "About Us",
           route: "/billing",
           color: "#8B5CF6",
         },
@@ -209,7 +210,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
         </Text>
 
         {item.badge && (
-          <View className="w-6 h-6 bg-primary-500 rounded-full items-center justify-center mr-3">
+          <View className="w-6 h-6 bg-red-500 rounded-full items-center justify-center mr-3">
             <Text className="text-white text-xs font-bold">{item.badge}</Text>
           </View>
         )}
@@ -256,9 +257,19 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
       >
         <View className="flex-1 bg-white dark:bg-secondary-900">
           {/* Header with User Info */}
-          <View className="pt-12 px-6 pb-8 bg-primary-500 dark:bg-primary-600">
+          <LinearGradient
+            colors={
+              isDark
+                ? ["#4A00B3", "#6D28D9", "#7C3AED"]
+                : ["#5B21B6", "#7C3AED", "#9333EA"]
+            }
+            locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="pt-12 px-6 pb-8"
+          >
             <View className="flex-row justify-between items-center mb-8">
-              <Text className="text-white text-2xl font-bold">Menu</Text>
+              <Text className="text-white text-2xl font-bold"></Text>
               <TouchableOpacity
                 onPress={onClose}
                 className="w-10 h-10 bg-white/20 rounded-full items-center justify-center active:bg-white/30"
@@ -293,7 +304,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
                 </View>
               </View>
             </View>
-          </View>
+          </LinearGradient>
 
           {/* Menu Content */}
           <ScrollView

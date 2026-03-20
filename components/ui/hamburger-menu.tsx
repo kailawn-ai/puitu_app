@@ -22,8 +22,8 @@ export function HamburgerMenu({
 
   // Background color with very low opacity for subtle visibility
   const backgroundColor = isDarkMode
-    ? "rgba(255, 255, 255, 0.1)"
-    : "rgba(0, 0, 0, 0.05)";
+    ? "rgba(0, 0, 0, 0.5)"
+    : "rgb(255, 255, 255)";
 
   return (
     <TouchableOpacity

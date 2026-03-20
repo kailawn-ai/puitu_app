@@ -32,8 +32,41 @@ export interface AppNotificationItem extends NotificationItem {
   readAt?: string | null;
 }
 
+export interface NotificationPaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  first_page_url?: string | null;
+  from?: number | null;
+  last_page: number;
+  last_page_url?: string | null;
+  next_page_url?: string | null;
+  path?: string | null;
+  per_page: number;
+  prev_page_url?: string | null;
+  to?: number | null;
+  total: number;
+}
+
 type NotificationMap = Record<string, RawNotificationRecord> | null;
 type NotificationCollection = NotificationMap | RawNotificationRecord[] | null;
+type NotificationApiResponse =
+  | RawNotificationRecord[]
+  | NotificationPaginatedResponse<RawNotificationRecord>;
+
+const buildQueryString = (params?: Record<string, unknown>): string => {
+  if (!params) return "";
+
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.append(key, String(value));
+    }
+  });
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+};
 
 const toArray = (value: NotificationCollection): RawNotificationRecord[] => {
   if (!value) return [];
@@ -163,10 +196,50 @@ const mapNotification = (item: RawNotificationRecord): AppNotificationItem => ({
   readAt: item.read_at ?? null,
 });
 
+const isPaginatedNotificationResponse = (
+  value: NotificationApiResponse,
+): value is NotificationPaginatedResponse<RawNotificationRecord> => {
+  return !Array.isArray(value) && Array.isArray(value?.data);
+};
+
 export const NotificationService = {
   async fetchUserNotifications(): Promise<AppNotificationItem[]> {
-    const response = await apiClient.get<RawNotificationRecord[]>("/notifications");
-    return normalizeItems(response.data);
+    const response = await this.fetchUserNotificationsPage();
+    return response.data;
+  },
+
+  async fetchUserNotificationsPage(params?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<NotificationPaginatedResponse<AppNotificationItem>> {
+    const query = buildQueryString({
+      page: params?.page,
+      per_page: params?.per_page,
+    });
+    const response = await apiClient.get<NotificationApiResponse>(
+      `/notifications${query}`,
+    );
+    const payload = response.data;
+
+    if (isPaginatedNotificationResponse(payload)) {
+      return {
+        ...payload,
+        data: normalizeItems(payload.data),
+      };
+    }
+
+    const items = normalizeItems(payload);
+    const currentPage = params?.page ?? 1;
+    const perPage = params?.per_page ?? items.length ?? 1;
+
+    return {
+      current_page: currentPage,
+      data: items,
+      last_page: currentPage,
+      per_page: perPage,
+      total: items.length,
+      next_page_url: null,
+    };
   },
 
   subscribeToUserNotifications(

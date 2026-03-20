@@ -9,7 +9,13 @@ import {
 } from "@react-native-firebase/auth";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import * as SecureStore from "expo-secure-store";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Alert } from "react-native";
 
 GoogleSignin.configure({
@@ -37,14 +43,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
   const auth = getAuth();
+  const hasCompletedInitialAuth = useRef(false);
 
   /**
    * 🔁 Listen for Firebase auth + silent token refresh
    */
   useEffect(() => {
     const unsubscribe = auth.onIdTokenChanged(async (firebaseUser) => {
+      const isInitialBootstrap = !hasCompletedInitialAuth.current;
+
       try {
-        setLoading(true);
+        if (isInitialBootstrap) {
+          setLoading(true);
+        }
 
         if (!firebaseUser) {
           // 🔓 Logged out
@@ -87,8 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await signOut(auth);
         setUser(null);
       } finally {
-        setInitializing(false);
-        setLoading(false);
+        if (isInitialBootstrap) {
+          hasCompletedInitialAuth.current = true;
+          setInitializing(false);
+          setLoading(false);
+        }
       }
     });
 

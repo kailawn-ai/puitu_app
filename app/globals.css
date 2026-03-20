@@ -2,11 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-.blackk {
-  background-color: #303030;
-  background-color: #828282;
-}
 .test {
   background-color: #101014;
-  background-color: #828282;
+  background-color: #141414;
+  background-color: rgb(27, 27, 27);
 }

@@ -1,7 +1,7 @@
 import type { CommunityGroup } from "@/lib/services/community-service";
 import { ChevronRight, Lock, Users } from "lucide-react-native";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 
 interface CommunityChatRowProps {
   group: CommunityGroup;
@@ -24,13 +24,21 @@ export default function CommunityChatRow({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={() => onPress?.(group)}
-      className="mb-3 flex-row items-center rounded-[28px] border border-slate-200 bg-white px-4 py-4 dark:border-secondary-700 dark:bg-secondary-800"
+      className="mb-3 flex-row items-center rounded-[28px] border border-slate-200 bg-white px-4 py-4 dark:border-secondary-600 dark:bg-secondary-700"
     >
-      <View className="h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500">
-        <Text className="text-base font-semibold text-white">
-          {getInitials(group.name)}
-        </Text>
-      </View>
+      {group.avatar_url ? (
+        <Image
+          source={{ uri: group.avatar_url }}
+          className="h-14 w-14 rounded-2xl bg-emerald-500"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500">
+          <Text className="text-base font-semibold text-white">
+            {getInitials(group.name)}
+          </Text>
+        </View>
+      )}
 
       <View className="ml-3 flex-1">
         <View className="flex-row items-center">

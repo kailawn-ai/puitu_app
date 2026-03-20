@@ -173,23 +173,36 @@ export default function NotificationCard({
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={() => {
-            if (Math.abs(dragDistance.current) > 8 || currentOffset.current !== 0) {
+            if (
+              Math.abs(dragDistance.current) > 8 ||
+              currentOffset.current !== 0
+            ) {
               closeActions();
               return;
             }
 
             onPress?.(item);
           }}
-          className={`rounded-[22px] px-4 py-3 border dark:border-secondary-700 ${
+          className={`rounded-[22px] px-4 py-3 border ${
             item.unread
-              ? "bg-sky-50 border-sky-100 dark:bg-secondary-800"
-              : "bg-white border-slate-100 dark:bg-secondary-800"
+              ? "bg-sky-50 border-sky-200 dark:bg-sky-950 dark:border-sky-800/70"
+              : "bg-white border-slate-200 dark:bg-secondary-900 dark:border-secondary-700"
           }`}
         >
           <View className="flex-row items-start">
             <View
-              className="w-10 h-10 rounded-xl items-center justify-center mt-0.5"
-              style={{ backgroundColor: kindStyle[kind].iconBg }}
+              className={`w-10 h-10 rounded-xl items-center justify-center mt-0.5 ${
+                item.unread ? "ring-1 ring-sky-200 dark:ring-sky-800/70" : ""
+              }`}
+              style={{
+                backgroundColor: item.unread
+                  ? kindStyle[kind].iconBg
+                  : kind === "course"
+                    ? "#EFF6FF"
+                    : kind === "job"
+                      ? "#FFF7ED"
+                      : "#F0FDFA",
+              }}
             >
               <Icon size={18} color={kindStyle[kind].iconColor} />
             </View>
@@ -198,27 +211,44 @@ export default function NotificationCard({
               <View className="flex-row items-center">
                 <Text
                   numberOfLines={1}
-                  className="flex-1 text-[15px] font-semibold text-slate-900 dark:text-white"
+                  className={`flex-1 text-[15px] ${
+                    item.unread
+                      ? "font-bold text-slate-950 dark:text-white"
+                      : "font-semibold text-slate-700 dark:text-slate-200"
+                  }`}
                 >
                   {item.title}
                 </Text>
                 {item.unread && (
-                  <View className="w-2 h-2 rounded-full bg-primary-500 ml-2" />
+                  <View className="ml-2 h-2.5 w-2.5 rounded-full bg-primary-500" />
                 )}
               </View>
 
               <Text
                 numberOfLines={2}
-                className="mt-1 text-[13px] leading-5 text-slate-600 dark:text-slate-300"
+                className={`mt-1 text-[13px] leading-5 ${
+                  item.unread
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
               >
                 {item.body}
               </Text>
 
               <View className="mt-2 flex-row items-center justify-between">
-                <Text className="text-xs text-slate-400 dark:text-slate-400">
-                  {item.unread ? "New" : "Seen"} • {item.timeLabel}
+                <Text
+                  className={`text-xs ${
+                    item.unread
+                      ? "font-semibold text-sky-700 dark:text-sky-300"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {item.unread ? "Unread" : "Read"} • {item.timeLabel}
                 </Text>
-                <ChevronRight size={16} color="#94A3B8" />
+                <ChevronRight
+                  size={16}
+                  color={item.unread ? "#0284C7" : "#94A3B8"}
+                />
               </View>
             </View>
           </View>

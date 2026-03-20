@@ -95,7 +95,7 @@ export default function CourseDetailUI({ course }: CourseDetailUIProps) {
         <View className="pl-3 pr-3">
           <Image
             source={{ uri: course.thumbnail_url }}
-            className="w-full h-56 rounded-xl"
+            className="w-full h-56 rounded-2xl"
             resizeMode="cover"
           />
         </View>

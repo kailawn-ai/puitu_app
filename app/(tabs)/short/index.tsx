@@ -1,4 +1,6 @@
+import { useIsFocused } from "@react-navigation/native";
 import { useEvent } from "expo";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useVideoPlayer, VideoView } from "expo-video";
 import {
   Bookmark,
@@ -106,13 +108,15 @@ const formatCount = (value: number) => {
 function ShortCard({
   item,
   isActive,
+  isScreenFocused,
   topInset,
-  bottomInset,
+  tabBarHeight,
 }: {
   item: ShortVideoItem;
   isActive: boolean;
+  isScreenFocused: boolean;
   topInset: number;
-  bottomInset: number;
+  tabBarHeight: number;
 }) {
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -125,28 +129,40 @@ function ShortCard({
   });
 
   React.useEffect(() => {
-    if (isActive) {
+    if (isActive && isScreenFocused) {
       player.play();
       return;
     }
 
     player.pause();
-  }, [isActive, player]);
+    player.currentTime = 0;
+  }, [isActive, isScreenFocused, player]);
 
   const displayLikes = useMemo(
     () => item.likes + (liked ? 1 : 0),
     [item.likes, liked],
   );
+  const topContentInset = topInset + 5;
+  const bottomContentInset = tabBarHeight;
 
   return (
     <View
       style={[
         styles.page,
-        { paddingTop: topInset + 6, paddingBottom: bottomInset + 72 },
+        {
+          paddingTop: topContentInset,
+          paddingBottom: bottomContentInset,
+        },
       ]}
     >
       <Pressable
-        style={StyleSheet.absoluteFill}
+        style={[
+          styles.videoLayer,
+          {
+            top: topContentInset,
+            bottom: bottomContentInset,
+          },
+        ]}
         onPress={() => {
           if (isPlaying) {
             player.pause();
@@ -165,6 +181,23 @@ function ShortCard({
         />
       </Pressable>
 
+      {!isPlaying && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.centerOverlay,
+            {
+              top: topContentInset,
+              bottom: bottomContentInset,
+            },
+          ]}
+        >
+          <View className="h-20 w-20 items-center justify-center rounded-full bg-black/35">
+            <Play size={32} color="#FFFFFF" fill="#FFFFFF" />
+          </View>
+        </View>
+      )}
+
       <View className="flex-1 justify-between px-2">
         <View className="flex-row items-start justify-between pt-3">
           <View className="rounded-full bg-black/35 px-4 py-2.5">
@@ -179,14 +212,6 @@ function ShortCard({
             </Text>
           </View>
         </View>
-
-        {!isPlaying && (
-          <View className="items-center justify-center">
-            <View className="h-20 w-20 items-center justify-center rounded-full bg-black/35">
-              <Play size={32} color="#FFFFFF" fill="#FFFFFF" />
-            </View>
-          </View>
-        )}
 
         <View className="flex-row items-end">
           <View className="mr-4 flex-1 rounded-[28px] bg-black/28 px-2">
@@ -303,6 +328,8 @@ function ShortCard({
 
 export default function ShortScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const isFocused = useIsFocused();
   const [activeIndex, setActiveIndex] = useState(0);
 
   const viewabilityConfig = useRef({
@@ -327,8 +354,9 @@ export default function ShortScreen() {
           <ShortCard
             item={item}
             isActive={index === activeIndex}
+            isScreenFocused={isFocused}
             topInset={insets.top}
-            bottomInset={insets.bottom}
+            tabBarHeight={tabBarHeight}
           />
         )}
         pagingEnabled
@@ -356,6 +384,16 @@ const styles = StyleSheet.create({
   page: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    backgroundColor: "#000000",
+    backgroundColor: "#141414",
+  },
+  centerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoLayer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
   },
 });

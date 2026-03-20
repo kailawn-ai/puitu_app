@@ -5,6 +5,7 @@ import {
   SearchListItem,
   SearchService,
 } from "@/lib/services/search-service";
+import { useAlert } from "@/providers/alert-provider";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
@@ -17,8 +18,8 @@ import {
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  BackHandler,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -43,6 +44,7 @@ const FILTERS: {
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { showInfo } = useAlert();
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
@@ -63,6 +65,18 @@ export default function SearchScreen() {
     }
     return `${selectedTypes.length} filters on`;
   }, [selectedTypes]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        router.back();
+        return true;
+      },
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
 
   useEffect(() => {
     let isActive = true;
@@ -174,7 +188,7 @@ export default function SearchScreen() {
 
   const handlePressItem = (item: SearchListItem) => {
     if (item.entityType === "quiz") {
-      Alert.alert(
+      showInfo(
         "Quiz screen not ready",
         "Search is already returning quiz results. We just need to wire the quiz detail screen route next.",
       );
@@ -196,6 +210,7 @@ export default function SearchScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
     >
+      <BackButton className="absolute top-12 left-4 z-10" />
       <LinearGradient
         colors={
           colorScheme === "dark"
@@ -211,17 +226,13 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
-            paddingTop: insets.top + 8,
+            paddingTop: insets.top + 1,
             paddingBottom: insets.bottom + 28,
           }}
         >
-          <View className="px-5">
-            <View className="flex-row items-center justify-between">
-              <BackButton onPress={() => router.back()} />
-            </View>
-
-            <View className="mt-5 rounded-[30px] border border-white/70 bg-white/92 p-4 dark:border-secondary-700 dark:bg-secondary-900">
-              <View className="flex-row items-center rounded-2xl bg-slate-100 px-4 py-3 dark:bg-secondary-800">
+          <View className="px-3">
+            <View className="rounded-[25px] border border-white/70 bg-white/92 p-4 dark:border-secondary-700 dark:bg-secondary-900">
+              <View className="mt-10 flex-row items-center rounded-2xl bg-white px-4 py-1 dark:bg-secondary-800">
                 <Search size={18} color="#64748B" />
                 <TextInput
                   value={query}
@@ -256,7 +267,7 @@ export default function SearchScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingTop: 14 }}
+                contentContainerStyle={{ paddingTop: 14, paddingVertical: 2 }}
               >
                 {FILTERS.map((filter) => {
                   const active = selectedTypes.includes(filter.value);
@@ -269,7 +280,7 @@ export default function SearchScreen() {
                       className={`mr-3 flex-row items-center rounded-full px-4 py-3 ${
                         active
                           ? "bg-primary-500"
-                          : "bg-slate-100 dark:bg-secondary-800"
+                          : "bg-slate-100 dark:bg-secondary-800 elevation-sm"
                       }`}
                     >
                       <Icon

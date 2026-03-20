@@ -71,7 +71,7 @@ export default function OldCardUI({
           onPress={onPressPreview}
           className="active:opacity-90"
         >
-          <View className="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+          <View className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
             <View className="flex-row">
               <View className="w-24 h-24 bg-zinc-100 dark:bg-zinc-800">
                 {hasValidImage ? (

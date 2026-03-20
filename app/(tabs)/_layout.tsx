@@ -1,15 +1,44 @@
 // app/(tabs)/_layout.tsx
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import * as Icons from "lucide-react-native";
-import { useColorScheme, View } from "react-native";
+import { useEffect } from "react";
+import { BackHandler, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const ROOT_TAB_PATHS = new Set([
+  "/home",
+  "/short",
+  "/community",
+  "/subscription",
+  "/profile",
+]);
+
 export default function TabsLayout() {
+  const router = useRouter();
+  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const isShortScreen = pathname === "/short";
   const insets = useSafeAreaInsets();
   const TAB_BAR_VISIBLE_HEIGHT = 50;
+  const tabBarTotalHeight = TAB_BAR_VISIBLE_HEIGHT + insets.bottom;
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (pathname !== "/home" && ROOT_TAB_PATHS.has(pathname)) {
+          router.replace("/home");
+          return true;
+        }
+
+        return false;
+      },
+    );
+
+    return () => backHandler.remove();
+  }, [pathname, router]);
 
   // Create a wrapper component to handle icon rendering
   const IconWrapper = ({ name, focused, color, size }: any) => {
@@ -31,40 +60,63 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: "transparent",
           borderTopWidth: 0,
-          height: TAB_BAR_VISIBLE_HEIGHT + insets.bottom,
+          elevation: 0,
+          shadowOpacity: 0,
+          height: tabBarTotalHeight,
           paddingBottom: insets.bottom,
           paddingTop: 1,
           position: "absolute",
           left: 0,
           right: 0,
+          overflow: "hidden",
         },
         tabBarBackground: () => (
-          <LinearGradient
-            colors={
-              isDark
-                ? [
-                    "rgba(20, 20, 20, 0.400)",
-                    "rgba(10, 10, 10, 0.950)",
-                    "rgb(0, 0, 0)",
-                  ]
-                : [
-                    "rgba(255, 255, 255, 0.400)", // Top
-                    "rgba(255, 255, 255, 0.950)", // Middle
-                    "rgb(255, 255, 255)", // Bottom
-                  ]
-            }
-            locations={[0, 0.5, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
+          <View
             style={{
               position: "absolute",
               left: 0,
               right: 0,
               bottom: 0,
-              height: TAB_BAR_VISIBLE_HEIGHT + insets.bottom,
+              height: tabBarTotalHeight,
+              overflow: "hidden",
             }}
           >
-            {/* Optional: Add a subtle border at top of tab bar */}
+            <LinearGradient
+              colors={
+                isShortScreen || isDark
+                  ? [
+                      "rgba(0, 0, 0, 0.300)",
+                      "rgba(0, 0, 0, 0.800)",
+                      "rgb(0, 0, 0)",
+                    ]
+                  : [
+                      "rgba(255, 255, 255, 0.300)",
+                      "rgba(255, 255, 255, 0.800)",
+                      "rgb(255, 255, 255)",
+                    ]
+              }
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                height: TAB_BAR_VISIBLE_HEIGHT,
+              }}
+            />
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: insets.bottom + 1,
+                backgroundColor:
+                  isShortScreen || isDark ? "#000000" : "#FFFFFF",
+              }}
+            />
             <View
               style={{
                 position: "absolute",
@@ -72,15 +124,17 @@ export default function TabsLayout() {
                 left: 0,
                 right: 0,
                 height: 1,
-                backgroundColor: isDark
-                  ? "rgba(255, 255, 255, 0.15)"
-                  : "rgba(0, 0, 0, 0.15)",
+                backgroundColor:
+                  isShortScreen || isDark
+                    ? "rgba(255, 255, 255, 0.15)"
+                    : "rgba(0, 0, 0, 0.15)",
               }}
             />
-          </LinearGradient>
+          </View>
         ),
         tabBarActiveTintColor: "#7A25FF",
-        tabBarInactiveTintColor: isDark ? "#E8E8E8" : "#1C1C1C",
+        tabBarInactiveTintColor:
+          isShortScreen || isDark ? "#E8E8E8" : "#1C1C1C",
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: "500",
