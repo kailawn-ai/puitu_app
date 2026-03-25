@@ -3,7 +3,7 @@ import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
 import { extractDeniedProductId } from "@/lib/utils/product-access";
 import VideoDetailUI from "@/components/video/video-detail-ui";
-import VideoService, { type CourseVideo } from "@/lib/services/video-service";
+import { VideoService, type CourseVideo } from "@/lib/services/video-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -201,7 +201,8 @@ const VideoDetailScreen = () => {
     router.push({
       pathname: "/payment",
       params: {
-        modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-video",
+        modelType:
+          (modelType as ResolveProductParams["model_type"]) ?? "course-video",
         modelId: String(modelId ?? id),
         productId: lockedProductId,
         title: "Video Access",

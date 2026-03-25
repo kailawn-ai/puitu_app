@@ -2,6 +2,13 @@ import database, {
   FirebaseDatabaseTypes,
 } from "@react-native-firebase/database";
 
+type RealtimeEventType =
+  | "value"
+  | "child_added"
+  | "child_changed"
+  | "child_removed"
+  | "child_moved";
+
 class RealtimeDBServiceClass {
   private getRef(path: string): FirebaseDatabaseTypes.Reference {
     return database().ref(path);
@@ -37,11 +44,12 @@ class RealtimeDBServiceClass {
     path: string,
     onData: (value: T | null) => void,
     onError?: (error: Error) => void,
+    eventType: RealtimeEventType = "value",
   ): () => void {
     const ref = this.getRef(path);
 
     const callback = ref.on(
-      "value",
+      eventType,
       (snapshot) => {
         onData((snapshot.val() as T) ?? null);
       },
@@ -50,7 +58,7 @@ class RealtimeDBServiceClass {
       },
     );
 
-    return () => ref.off("value", callback);
+    return () => ref.off(eventType, callback);
   }
 
   serverTimestamp() {

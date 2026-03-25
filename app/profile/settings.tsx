@@ -3,6 +3,7 @@ import { AuthService } from "@/lib/services/auth-service";
 import { AUTH_USER_STORE_KEYS } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import * as SecureStore from "expo-secure-store";
 import {
   Bell,
@@ -13,11 +14,13 @@ import {
   Moon,
   Shield,
   Smartphone,
+  Trash,
   UserCog,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useEffect } from "react";
 import {
+  ActivityIndicator,
   BackHandler,
   ScrollView,
   Switch,
@@ -42,10 +45,12 @@ const SettingsScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colorScheme, toggleColorScheme } = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
 
   const [notifications, setNotifications] = React.useState(true);
   const [downloadOverWifi, setDownloadOverWifi] = React.useState(true);
   const [biometricLock, setBiometricLock] = React.useState(false);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -124,6 +129,12 @@ const SettingsScreen = () => {
           subtitle: "Manage data and permissions",
           color: "#14B8A6",
         },
+        {
+          icon: Trash,
+          label: "Delete Account or Deactivate",
+          subtitle: "Delete your a/c permanently!, or deactivate for a moment",
+          color: "#EF4444",
+        },
       ],
     },
   ];
@@ -147,6 +158,10 @@ const SettingsScreen = () => {
   };
 
   const handleLogout = () => {
+    if (isLoggingOut) {
+      return;
+    }
+
     alert.showWarning("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -154,6 +169,7 @@ const SettingsScreen = () => {
         style: "destructive",
         onPress: async () => {
           try {
+            setIsLoggingOut(true);
             await SecureStore.deleteItemAsync("auth_uid");
             await SecureStore.deleteItemAsync("auth_token");
             await SecureStore.deleteItemAsync(
@@ -170,6 +186,8 @@ const SettingsScreen = () => {
             router.replace("/(auth)/login");
           } catch (error) {
             alert.showError("Logout error:", error);
+          } finally {
+            setIsLoggingOut(false);
           }
         },
       },
@@ -178,112 +196,136 @@ const SettingsScreen = () => {
 
   return (
     <View className="flex-1 bg-background dark:bg-background-dark">
-      <View
-        className="px-5 flex-row items-center justify-between"
-        style={{ paddingTop: insets.top + 2 }}
+      <LinearGradient
+        colors={isDarkMode ? ["#09090b", "#171717"] : ["#F8FAFC", "#E2E8F0"]}
+        locations={[0, 1]}
+        start={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0 }}
+        style={{ flex: 1 }}
       >
-        <BackButton onPress={() => router.back()} />
-        <Text className="text-2xl font-bold text-gray-900 dark:text-white">
-          Settings
-        </Text>
-        <View className="w-11 h-11" />
-      </View>
+        <View
+          className="px-5 flex-row items-center justify-between"
+          style={{ paddingTop: insets.top + 1 }}
+        >
+          <BackButton onPress={() => router.back()} />
+          <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+            Settings
+          </Text>
+          <View className="w-11 h-11" />
+        </View>
 
-      <ScrollView
-        className="mt-4"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      >
-        <View className="px-5">
-          {sections.map((section) => (
-            <View key={section.title} className="mb-7">
-              <Text className="text-base font-bold text-gray-900 dark:text-white mb-3">
-                {section.title}
-              </Text>
+        <ScrollView
+          className="mt-4"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 80 }}
+        >
+          <View className="px-5">
+            {sections.map((section) => (
+              <View key={section.title} className="mb-7">
+                <Text className="text-base font-bold text-gray-900 dark:text-white mb-3">
+                  {section.title}
+                </Text>
 
-              <View className="bg-secondary-50 dark:bg-secondary-800 rounded-2xl overflow-hidden">
-                {section.items.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.label}
-                    activeOpacity={item.hasSwitch ? 1 : 0.75}
-                    onPress={() => {
-                      if (item.hasSwitch) {
-                        onToggle(item.label);
-                        return;
-                      }
+                <View className="bg-white dark:bg-secondary-800 rounded-2xl overflow-hidden">
+                  {section.items.map((item, index) => (
+                    <TouchableOpacity
+                      key={item.label}
+                      activeOpacity={item.hasSwitch ? 1 : 0.75}
+                      onPress={() => {
+                        if (item.hasSwitch) {
+                          onToggle(item.label);
+                          return;
+                        }
 
-                      if (item.label === "Profile Details") {
-                        router.push("/profile/edit");
-                      }
-                    }}
-                    className={`px-4 py-4 flex-row items-center justify-between ${
-                      index !== section.items.length - 1
-                        ? "border-b border-white dark:border-gray-700"
-                        : ""
-                    }`}
-                  >
-                    <View className="flex-row flex-1 items-center">
-                      <View
-                        className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                        style={{ backgroundColor: `${item.color}15` }}
-                      >
-                        <item.icon size={20} color={item.color} />
+                        if (item.label === "Profile Details") {
+                          router.push("/profile/edit");
+                        }
+                      }}
+                      className={`px-4 py-4 flex-row items-center justify-between ${
+                        index !== section.items.length - 1
+                          ? "border-b border-secondary-50 dark:border-gray-700"
+                          : ""
+                      }`}
+                    >
+                      <View className="flex-row flex-1 items-center">
+                        <View
+                          className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                          style={{ backgroundColor: `${item.color}15` }}
+                        >
+                          <item.icon size={20} color={item.color} />
+                        </View>
+
+                        <View className="flex-1">
+                          <Text className="text-gray-900 dark:text-white font-medium">
+                            {item.label}
+                          </Text>
+                          {item.subtitle && (
+                            <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {item.subtitle}
+                            </Text>
+                          )}
+                        </View>
                       </View>
 
-                      <View className="flex-1">
-                        <Text className="text-gray-900 dark:text-white font-medium">
-                          {item.label}
-                        </Text>
-                        {item.subtitle && (
-                          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {item.subtitle}
-                          </Text>
+                      <View className="ml-3">
+                        {item.hasSwitch ? (
+                          <Switch
+                            value={!!item.value}
+                            onValueChange={() => onToggle(item.label)}
+                            trackColor={{ false: "#D1D5DB", true: "#7A25FF" }}
+                            thumbColor="#FFFFFF"
+                          />
+                        ) : item.rightText ? (
+                          <View className="flex-row items-center">
+                            <Text className="text-sm text-gray-500 dark:text-gray-400 mr-1">
+                              {item.rightText}
+                            </Text>
+                            <ChevronRight size={18} color="#9CA3AF" />
+                          </View>
+                        ) : (
+                          <ChevronRight size={18} color="#9CA3AF" />
                         )}
                       </View>
-                    </View>
-
-                    <View className="ml-3">
-                      {item.hasSwitch ? (
-                        <Switch
-                          value={!!item.value}
-                          onValueChange={() => onToggle(item.label)}
-                          trackColor={{ false: "#D1D5DB", true: "#7A25FF" }}
-                          thumbColor="#FFFFFF"
-                        />
-                      ) : item.rightText ? (
-                        <View className="flex-row items-center">
-                          <Text className="text-sm text-gray-500 dark:text-gray-400 mr-1">
-                            {item.rightText}
-                          </Text>
-                          <ChevronRight size={18} color="#9CA3AF" />
-                        </View>
-                      ) : (
-                        <ChevronRight size={18} color="#9CA3AF" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
 
-          <View className="mb-7">
-            <Text className="text-base font-bold text-gray-900 dark:text-white mb-3">
-              Account Actions
-            </Text>
-            <TouchableOpacity
-              className="flex-row items-center justify-center bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl"
-              activeOpacity={0.7}
-              onPress={handleLogout}
-            >
-              <LogOut size={20} color="#EF4444" />
-              <Text className="text-red-600 dark:text-red-400 font-semibold ml-3">
-                Log Out
+            <View className="mb-7">
+              <Text className="text-base font-bold text-gray-900 dark:text-white mb-3">
+                Account Actions
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-row items-center justify-center rounded-2xl p-4 elevation-sm ${
+                  isLoggingOut
+                    ? "bg-red-200 dark:bg-red-900/30"
+                    : "bg-red-100 dark:bg-red-900/20"
+                }`}
+                activeOpacity={0.7}
+                onPress={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <>
+                    <ActivityIndicator size="small" color="#EF4444" />
+                    <Text className="ml-3 font-semibold text-red-600 dark:text-red-400">
+                      Logging out...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <LogOut size={20} color="#EF4444" />
+                    <Text className="ml-3 font-semibold text-red-600 dark:text-red-400">
+                      Log Out
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </LinearGradient>
     </View>
   );
 };

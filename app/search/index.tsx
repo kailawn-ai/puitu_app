@@ -12,11 +12,12 @@ import {
   BriefcaseBusiness,
   CircleHelp,
   FileQuestion,
+  MoveUpRight,
   Search,
   Users,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   BackHandler,
   ActivityIndicator,
@@ -57,6 +58,7 @@ export default function SearchScreen() {
   const [bootstrapping, setBootstrapping] = useState(true);
 
   const trimmedQuery = query.trim();
+  const deferredQuery = useDeferredValue(trimmedQuery);
 
   const filterSummary = useMemo(() => {
     if (!selectedTypes.length) return "All collections";
@@ -106,8 +108,9 @@ export default function SearchScreen() {
   useEffect(() => {
     let isActive = true;
 
-    if (!trimmedQuery) {
+    if (!deferredQuery) {
       setSuggestions([]);
+      setLoadingSuggestions(false);
       return () => {
         isActive = false;
       };
@@ -116,7 +119,7 @@ export default function SearchScreen() {
     setLoadingSuggestions(true);
     const timeout = setTimeout(async () => {
       try {
-        const items = await SearchService.getSuggestionItems(trimmedQuery);
+        const items = await SearchService.getSuggestionItems(deferredQuery);
         if (isActive) {
           setSuggestions(items);
         }
@@ -130,18 +133,18 @@ export default function SearchScreen() {
           setLoadingSuggestions(false);
         }
       }
-    }, 220);
+    }, 110);
 
     return () => {
       isActive = false;
       clearTimeout(timeout);
     };
-  }, [trimmedQuery]);
+  }, [deferredQuery]);
 
   useEffect(() => {
     let isActive = true;
 
-    if (!trimmedQuery && !selectedTypes.length) {
+    if (!deferredQuery && !selectedTypes.length) {
       setResults([]);
       return () => {
         isActive = false;
@@ -152,7 +155,7 @@ export default function SearchScreen() {
     const timeout = setTimeout(async () => {
       try {
         const items = await SearchService.searchAllItems({
-          q: trimmedQuery || undefined,
+          q: deferredQuery || undefined,
           types: selectedTypes.length ? selectedTypes : undefined,
           per_page: 24,
         });
@@ -170,13 +173,13 @@ export default function SearchScreen() {
           setLoadingResults(false);
         }
       }
-    }, 280);
+    }, 140);
 
     return () => {
       isActive = false;
       clearTimeout(timeout);
     };
-  }, [selectedTypes, trimmedQuery]);
+  }, [deferredQuery, selectedTypes]);
 
   const toggleType = (type: SearchEntityType) => {
     setSelectedTypes((current) =>
@@ -203,7 +206,13 @@ export default function SearchScreen() {
     router.push(item.route as never);
   };
 
+  const handlePickSuggestion = (item: SearchListItem) => {
+    setQuery(item.title);
+    handlePressItem(item);
+  };
+
   const activeItems = trimmedQuery || selectedTypes.length ? results : featured;
+  const showSuggestions = trimmedQuery.length >= 2 && suggestions.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -231,8 +240,8 @@ export default function SearchScreen() {
           }}
         >
           <View className="px-3">
-            <View className="rounded-[25px] border border-white/70 bg-white/92 p-4 dark:border-secondary-700 dark:bg-secondary-900">
-              <View className="mt-10 flex-row items-center rounded-2xl bg-white px-4 py-1 dark:bg-secondary-800">
+            <View className="rounded-[30px] border border-white/70 bg-white/92 p-4 dark:border-secondary-700 dark:bg-secondary-900">
+              <View className="mt-14 flex-row items-center rounded-2xl bg-white px-4 py-1 dark:bg-secondary-800">
                 <Search size={18} color="#64748B" />
                 <TextInput
                   value={query}
@@ -250,6 +259,61 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {trimmedQuery.length >= 2 ? (
+                <View className="mt-4 rounded-2xl bg-slate-50 px-3 py-3 dark:bg-secondary-800/80">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xs font-semibold uppercase tracking-[1.2px] text-slate-500 dark:text-slate-400">
+                      Suggestions
+                    </Text>
+                    {loadingSuggestions ? (
+                      <ActivityIndicator size="small" color="#7A25FF" />
+                    ) : null}
+                  </View>
+
+                  {showSuggestions ? (
+                    <View className="mt-3">
+                      {suggestions.slice(0, 5).map((item) => (
+                        <TouchableOpacity
+                          key={`suggestion-${item.id}`}
+                          onPress={() => handlePickSuggestion(item)}
+                          className="mb-2 flex-row items-center justify-between rounded-2xl bg-white px-3 py-3 dark:bg-secondary-900"
+                        >
+                          <View className="mr-3 flex-1">
+                            <Text
+                              numberOfLines={1}
+                              className="text-sm font-semibold text-slate-900 dark:text-white"
+                            >
+                              {item.title}
+                            </Text>
+                            {!!item.subtitle && (
+                              <Text
+                                numberOfLines={1}
+                                className="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                              >
+                                {item.subtitle}
+                              </Text>
+                            )}
+                          </View>
+
+                          <View className="flex-row items-center">
+                            {!!item.badge && (
+                              <Text className="mr-2 text-xs font-medium text-slate-400 dark:text-slate-500">
+                                {item.badge}
+                              </Text>
+                            )}
+                            <MoveUpRight size={14} color="#94A3B8" />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : !loadingSuggestions ? (
+                    <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                      Keep typing and I’ll surface the closest matches.
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
 
               <View className="mt-4 flex-row items-center justify-between">
                 <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -317,7 +381,7 @@ export default function SearchScreen() {
                 </Text>
                 <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {trimmedQuery || selectedTypes.length
-                    ? "Ranked by your backend search engine."
+                    ? "Ranked by title strength, freshness, popularity, and close matches."
                     : "Fresh picks from your indexed content."}
                 </Text>
               </View>

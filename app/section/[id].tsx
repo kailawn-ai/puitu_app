@@ -113,7 +113,7 @@ const SectionScreen = () => {
             source={LOADER_ANIMATION}
             autoPlay
             loop
-            style={{ width: 50, height: 50 }}
+            style={{ width: 80, height: 80 }}
           />
           <Text className="mt-2 text-zinc-500 dark:text-zinc-400">
             Loading section...
@@ -179,8 +179,8 @@ const SectionScreen = () => {
                   params: {
                     id: String(item.id),
                     courseId: String(section.course_id),
-                    modelType: "course",
-                    modelId: String(section.course_id),
+                    modelType: "course-section",
+                    modelId: String(section.id),
                   },
                 });
                 return;
@@ -192,8 +192,8 @@ const SectionScreen = () => {
                   params: {
                     id: String(item.id),
                     courseId: String(section.course_id),
-                    modelType: "course",
-                    modelId: String(section.course_id),
+                    modelType: "course-section",
+                    modelId: String(section.id),
                   },
                 });
                 return;
@@ -205,8 +205,8 @@ const SectionScreen = () => {
                   params: {
                     id: String(item.id),
                     courseId: String(section.course_id),
-                    modelType: "course",
-                    modelId: String(section.course_id),
+                    modelType: "course-section",
+                    modelId: String(section.id),
                   },
                 });
                 return;
@@ -218,8 +218,8 @@ const SectionScreen = () => {
                   params: {
                     id: String(item.id),
                     courseId: String(section.course_id),
-                    modelType: "course",
-                    modelId: String(section.course_id),
+                    modelType: "course-section",
+                    modelId: String(section.id),
                   },
                 });
               }

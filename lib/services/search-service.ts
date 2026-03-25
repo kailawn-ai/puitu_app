@@ -93,6 +93,11 @@ export interface SearchListItem {
   badge?: string | null;
 }
 
+const searchResponseCache = new Map<string, SearchPaginatedResponse<SearchDocument>>();
+const suggestionCache = new Map<string, SearchSuggestion[]>();
+
+const normalizeQuery = (value?: string) => value?.trim().toLowerCase() ?? "";
+
 const buildQueryString = (params?: Record<string, unknown>): string => {
   if (!params) return "";
 
@@ -190,6 +195,17 @@ export const SearchService = {
   async searchAll(
     params?: SearchAllParams,
   ): Promise<SearchPaginatedResponse<SearchDocument>> {
+    const cacheKey = JSON.stringify({
+      q: normalizeQuery(params?.q),
+      types: params?.types?.slice().sort() ?? [],
+      per_page: params?.per_page ?? 24,
+    });
+
+    const cached = searchResponseCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const query = buildQueryString({
       q: params?.q,
       types: params?.types,
@@ -198,6 +214,7 @@ export const SearchService = {
     const res = await apiClient.get<SearchPaginatedResponse<SearchDocument>>(
       `/search/all${query}`,
     );
+    searchResponseCache.set(cacheKey, res.data);
     return res.data;
   },
 
@@ -207,10 +224,21 @@ export const SearchService = {
   },
 
   async getSuggestions(query: string): Promise<SearchSuggestion[]> {
+    const normalized = normalizeQuery(query);
+    if (!normalized) {
+      return [];
+    }
+
+    const cached = suggestionCache.get(normalized);
+    if (cached) {
+      return cached;
+    }
+
     const queryString = buildQueryString({ q: query });
     const res = await apiClient.get<SearchSuggestion[]>(
       `/search/suggestions${queryString}`,
     );
+    suggestionCache.set(normalized, res.data);
     return res.data;
   },
 

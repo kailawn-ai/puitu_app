@@ -12,7 +12,7 @@ interface HamburgerMenuProps {
 }
 
 export function HamburgerMenu({
-  size = 44, // Default size for the button
+  size = 52, // Default size for the button
   iconSize = 24,
   className = "",
 }: HamburgerMenuProps) {
@@ -22,7 +22,7 @@ export function HamburgerMenu({
 
   // Background color with very low opacity for subtle visibility
   const backgroundColor = isDarkMode
-    ? "rgba(0, 0, 0, 0.5)"
+    ? "rgba(0, 0, 0, 0.3)"
     : "rgb(255, 255, 255)";
 
   return (

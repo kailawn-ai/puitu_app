@@ -6,7 +6,7 @@ import { getDeviceInfo } from "../device/device-info";
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
   process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
-  "http://192.168.1.54:8000/api/v1";
+  "https://puitu.buannelstudio.in/api/v1";
 const API_TIMEOUT = 30000;
 
 interface RequestOptions extends RequestInit {
@@ -20,6 +20,7 @@ interface ApiResponse<T = any> {
   status: number;
   message?: string;
   success: boolean;
+  meta?: any;
 }
 
 interface ApiError {
@@ -124,6 +125,7 @@ class ApiClient {
       status: response.status,
       message: data?.message,
       success: data?.status === "success",
+      meta: data?.meta,
     };
   }
 

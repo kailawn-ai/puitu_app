@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LottieView from "lottie-react-native";
 
 const PAGE_SIZE = 20;
 
@@ -35,11 +36,7 @@ const getDayLabel = (value?: string | null) => {
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const itemDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
+  const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round(
     (today.getTime() - itemDay.getTime()) / (1000 * 60 * 60 * 24),
   );
@@ -50,8 +47,7 @@ const getDayLabel = (value?: string | null) => {
   return itemDay.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    year:
-      itemDay.getFullYear() === now.getFullYear() ? undefined : "numeric",
+    year: itemDay.getFullYear() === now.getFullYear() ? undefined : "numeric",
   });
 };
 
@@ -101,32 +97,11 @@ export default function NotificationsScreen() {
     return items;
   }, [notifications]);
 
-  const syncRealtimeUnreadState = useCallback(async () => {
-    const stored = await getStoredAuthUser();
-    if (!stored?.id) return () => {};
-
-    return NotificationService.subscribeToUserNotifications(
-      stored.id,
-      (items) => {
-        setNotifications((current) => {
-          if (!current.length) return current;
-
-          const unreadMap = new Map(items.map((item) => [item.id, item.unread]));
-          return current.map((item) =>
-            unreadMap.has(item.id)
-              ? { ...item, unread: unreadMap.get(item.id) }
-              : item,
-          );
-        });
-      },
-      (error) => {
-        console.log("Notifications realtime sync error:", error);
-      },
-    );
-  }, []);
-
   const loadNotifications = useCallback(
-    async (nextPage = 1, mode: "initial" | "refresh" | "append" = "initial") => {
+    async (
+      nextPage = 1,
+      mode: "initial" | "refresh" | "append" = "initial",
+    ) => {
       if (mode === "initial") {
         setLoadingInitial(true);
         setLoadError(null);
@@ -187,15 +162,30 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     let unsubscribe = () => {};
+    let isMounted = true;
 
-    syncRealtimeUnreadState().then((cleanup) => {
-      unsubscribe = cleanup;
+    getStoredAuthUser().then((stored) => {
+      if (!isMounted || !stored?.id) return;
+
+      unsubscribe = NotificationService.subscribeToUserNotifications(
+        {
+          qualificationIds: [],
+          userId: stored.id,
+        },
+        () => {
+          void loadNotifications(1, "refresh");
+        },
+        (error) => {
+          console.log("Notifications realtime sync error:", error);
+        },
+      );
     });
 
     return () => {
+      isMounted = false;
       unsubscribe();
     };
-  }, [syncRealtimeUnreadState]);
+  }, [loadNotifications]);
 
   const handleRefresh = useCallback(async () => {
     await loadNotifications(1, "refresh");
@@ -204,7 +194,14 @@ export default function NotificationsScreen() {
   const handleLoadMore = useCallback(async () => {
     if (loadingMore || loadingInitial || refreshing || page >= lastPage) return;
     await loadNotifications(page + 1, "append");
-  }, [lastPage, loadNotifications, loadingInitial, loadingMore, page, refreshing]);
+  }, [
+    lastPage,
+    loadNotifications,
+    loadingInitial,
+    loadingMore,
+    page,
+    refreshing,
+  ]);
 
   const handlePressItem = useCallback(
     async (item: AppNotificationItem) => {
@@ -233,56 +230,65 @@ export default function NotificationsScreen() {
     [notifications, router],
   );
 
-  const handleMarkAsRead = useCallback(async (item: AppNotificationItem) => {
-    if (!item.unread) return;
+  const handleMarkAsRead = useCallback(
+    async (item: AppNotificationItem) => {
+      if (!item.unread) return;
 
-    const previousNotifications = notifications;
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === item.id
-          ? { ...notification, unread: false }
-          : notification,
-      ),
-    );
+      const previousNotifications = notifications;
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === item.id
+            ? { ...notification, unread: false }
+            : notification,
+        ),
+      );
 
-    try {
-      await NotificationService.markAsRead(item.id);
-    } catch (error) {
-      console.log("Notification mark as read failed:", error);
-      setNotifications(previousNotifications);
-    }
-  }, [notifications]);
+      try {
+        await NotificationService.markAsRead(item.id);
+      } catch (error) {
+        console.log("Notification mark as read failed:", error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [notifications],
+  );
 
-  const performDelete = useCallback(async (item: AppNotificationItem) => {
-    const previousNotifications = notifications;
-    setNotifications((current) =>
-      current.filter((notification) => notification.id !== item.id),
-    );
+  const performDelete = useCallback(
+    async (item: AppNotificationItem) => {
+      const previousNotifications = notifications;
+      setNotifications((current) =>
+        current.filter((notification) => notification.id !== item.id),
+      );
 
-    try {
-      await NotificationService.deleteNotification(item.id);
-    } catch (error) {
-      console.log("Notification delete failed:", error);
-      setNotifications(previousNotifications);
-    }
-  }, [notifications]);
+      try {
+        await NotificationService.deleteNotification(item.id);
+      } catch (error) {
+        console.log("Notification delete failed:", error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [notifications],
+  );
 
-  const handleDelete = useCallback((item: AppNotificationItem) => {
-    showWarning(
-      "Delete Notification",
-      "Remove this notification from your history?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            void performDelete(item);
+  const handleDelete = useCallback(
+    (item: AppNotificationItem) => {
+      showWarning(
+        "Delete Notification",
+        "Remove this notification from your history?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              void performDelete(item);
+            },
           },
-        },
-      ],
-    );
-  }, [performDelete, showWarning]);
+        ],
+      );
+    },
+    [performDelete, showWarning],
+  );
 
   const handleMarkAllRead = useCallback(async () => {
     if (unreadCount === 0) return;
@@ -315,8 +321,12 @@ export default function NotificationsScreen() {
       <View className="px-5 pb-3">
         <NotificationCard
           item={item.item}
-          onPress={(pressedItem) => void handlePressItem(pressedItem as AppNotificationItem)}
-          onDelete={(pressedItem) => handleDelete(pressedItem as AppNotificationItem)}
+          onPress={(pressedItem) =>
+            void handlePressItem(pressedItem as AppNotificationItem)
+          }
+          onDelete={(pressedItem) =>
+            handleDelete(pressedItem as AppNotificationItem)
+          }
           onMarkAsRead={(pressedItem) =>
             void handleMarkAsRead(pressedItem as AppNotificationItem)
           }
@@ -367,11 +377,14 @@ export default function NotificationsScreen() {
       </View>
 
       {loadingInitial ? (
-        <View className="flex-1 items-center justify-center px-5">
-          <ActivityIndicator size="small" color="#7A25FF" />
-          <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            Loading notifications...
-          </Text>
+        <View className="flex-1 items-center justify-center">
+          <LottieView
+            source={require("../assets/icons/loader.json")}
+            autoPlay
+            loop
+            style={{ width: 80, height: 80 }}
+          />
+          <Text className="mt-2 text-gray-500">Loading course...</Text>
         </View>
       ) : loadError ? (
         <View className="flex-1 justify-center px-5">

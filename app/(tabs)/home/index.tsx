@@ -12,18 +12,18 @@ import { HomeResponse, HomeService } from "@/lib/services/home-service";
 import { saveAuthUserToStore } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
 import { useNotifications } from "@/providers/notification-provider";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Search } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   BackHandler,
-  LayoutAnimation,
-  Platform,
+  Easing,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,8 +37,12 @@ const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [shouldRenderNotifications, setShouldRenderNotifications] =
+    useState(false);
   const [homeData, setHomeData] = useState<HomeResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const isLoadingHomeRef = useRef(false);
+  const notificationAnimation = React.useRef(new Animated.Value(0)).current;
   const {
     notifications,
     unreadCount,
@@ -50,34 +54,64 @@ const HomeScreen = () => {
     deleteNotification,
   } = useNotifications();
 
-  useEffect(() => {
-    loadHome();
-  }, []);
+  const loadHome = useCallback(
+    async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
+      if (isLoadingHomeRef.current) return;
 
-  useEffect(() => {
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
+      isLoadingHomeRef.current = true;
 
-  const loadHome = async () => {
-    try {
-      const data = await HomeService.getHome();
-      setHomeData(data);
-
-      if (data.current_user) {
-        await saveAuthUserToStore(data.current_user, "system");
-        await refreshNotifications();
+      if (showLoader) {
+        setLoading(true);
       }
-    } catch (e) {
-      console.log("Home load error:", e);
-    } finally {
-      setLoading(false);
+
+      try {
+        const data = await HomeService.getHome();
+        setHomeData(data);
+
+        if (data.current_user) {
+          await saveAuthUserToStore(data.current_user, "system");
+        }
+
+        await refreshNotifications();
+      } catch (e) {
+        console.log("Home load error:", e);
+      } finally {
+        isLoadingHomeRef.current = false;
+        setLoading(false);
+      }
+    },
+    [refreshNotifications],
+  );
+
+  useEffect(() => {
+    void loadHome({ showLoader: true });
+  }, [loadHome]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadHome({ showLoader: !homeData });
+    }, [homeData, loadHome]),
+  );
+
+  useEffect(() => {
+    if (showNotifications) {
+      setShouldRenderNotifications(true);
+      void refreshNotifications();
     }
-  };
+
+    Animated.timing(notificationAnimation, {
+      toValue: showNotifications ? 1 : 0,
+      duration: showNotifications ? 260 : 180,
+      easing: showNotifications
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !showNotifications) {
+        setShouldRenderNotifications(false);
+      }
+    });
+  }, [notificationAnimation, refreshNotifications, showNotifications]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -86,7 +120,6 @@ const HomeScreen = () => {
   };
 
   const closeNotifications = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowNotifications(false);
   };
 
@@ -176,10 +209,10 @@ const HomeScreen = () => {
           <View className="flex-row items-center">
             <HamburgerMenu />
             <View className="ml-4">
-              <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">
                 Welcome back! 👋
               </Text>
-              <Text className="text-gray-600 dark:text-gray-400">
+              <Text className="text-gray-600 dark:text-gray-400 text-xs">
                 Continue your learning journey
               </Text>
             </View>
@@ -188,21 +221,18 @@ const HomeScreen = () => {
           <View className="flex-row items-center">
             <TouchableOpacity
               onPress={() => router.push("/search")}
-              className="mr-2 p-2 bg-white dark:bg-secondary-800 rounded-xl"
+              className="mr-2 p-4 bg-white dark:bg-secondary-700 rounded-2xl"
             >
-              <Search size={22} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
+              <Search size={24} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => {
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.Presets.easeInEaseOut,
-                );
                 setShowNotifications((prev) => !prev);
               }}
-              className="p-2 bg-white dark:bg-secondary-800 rounded-xl relative"
+              className="p-4 bg-white dark:bg-secondary-700 rounded-2xl relative"
             >
-              <Bell size={22} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
+              <Bell size={24} color={isDarkMode ? "#FFFFFF" : "#09090b"} />
               {unreadCount > 0 && (
                 <View className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full items-center justify-center">
                   <Text className="text-[10px] font-bold text-white">
@@ -214,28 +244,6 @@ const HomeScreen = () => {
           </View>
         </View>
       </View>
-
-      {showNotifications && (
-        <NotificationSection
-          loading={notificationLoading}
-          notifications={notifications}
-          unreadCount={unreadCount}
-          isLive={notificationsAreLive}
-          onClose={closeNotifications}
-          onViewAll={() => {
-            closeNotifications();
-            router.push("/notifications");
-          }}
-          onMarkAllRead={handleMarkAllRead}
-          onPressItem={handleNotificationPress}
-          onMarkAsReadItem={(item) =>
-            handleMarkAsReadNotification(item as (typeof notifications)[number])
-          }
-          onDeleteItem={(item) =>
-            handleDeleteNotification(item as (typeof notifications)[number])
-          }
-        />
-      )}
 
       {/* Scrollable Content */}
       <ScrollView
@@ -252,6 +260,24 @@ const HomeScreen = () => {
             <CategorySection
               categories={homeData.categories}
               onPressItem={(cat) => {
+                if (
+                  cat.slug?.toLowerCase() === "courses" ||
+                  cat.name?.toLowerCase() === "courses"
+                ) {
+                  router.push("/course");
+                  return;
+                }
+
+                if (
+                  cat.slug?.toLowerCase() === "quiz" ||
+                  cat.slug?.toLowerCase() === "quizzes" ||
+                  cat.name?.toLowerCase() === "quiz" ||
+                  cat.name?.toLowerCase() === "quizzes"
+                ) {
+                  router.push("/quiz");
+                  return;
+                }
+
                 console.log("Pressed category:", cat.name);
               }}
             />
@@ -275,6 +301,88 @@ const HomeScreen = () => {
           </>
         )}
       </ScrollView>
+
+      {shouldRenderNotifications && (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            zIndex: 40,
+          }}
+        >
+          <Pressable
+            onPress={closeNotifications}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
+          >
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                flex: 1,
+                backgroundColor: "#020617",
+                opacity: notificationAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 0.14],
+                }),
+              }}
+            />
+          </Pressable>
+
+          <Animated.View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              top: insets.top + 72,
+              right: 0,
+              left: 0,
+              opacity: notificationAnimation,
+              transform: [
+                {
+                  translateY: notificationAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-18, 0],
+                  }),
+                },
+                {
+                  scale: notificationAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.92, 1],
+                  }),
+                },
+              ],
+            }}
+          >
+            <NotificationSection
+              loading={notificationLoading}
+              notifications={notifications}
+              unreadCount={unreadCount}
+              isLive={notificationsAreLive}
+              onClose={closeNotifications}
+              onViewAll={() => {
+                closeNotifications();
+                router.push("/notifications");
+              }}
+              onMarkAllRead={handleMarkAllRead}
+              onPressItem={handleNotificationPress}
+              onMarkAsReadItem={(item) =>
+                handleMarkAsReadNotification(item as (typeof notifications)[number])
+              }
+              onDeleteItem={(item) =>
+                handleDeleteNotification(item as (typeof notifications)[number])
+              }
+            />
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 };

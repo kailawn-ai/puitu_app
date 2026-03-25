@@ -1,9 +1,10 @@
 // app/(tabs)/profile.tsx
+import RequestCreatorCard from "@/components/creator/request-creator-card";
 import {
-  getStoredAuthUser,
-  type StoredAuthUser,
-} from "@/lib/utils/auth-user-store";
-import { useAlert } from "@/providers/alert-provider";
+  ProfileResponseService,
+  type ProfileResponseData,
+} from "@/lib/services/profile-response-service";
+import { useProfileResponseStore } from "@/store/profile-response-store";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Award,
@@ -18,7 +19,6 @@ import {
   Heart,
   HelpCircle,
   Lock,
-  Mail,
   Moon,
   Settings,
   Shield,
@@ -39,57 +39,78 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const formatTimeSpent = (minutes?: number) => {
+  const safeMinutes = Math.max(minutes ?? 0, 0);
+  const hours = Math.floor(safeMinutes / 60);
+  const remainingMinutes = safeMinutes % 60;
+
+  if (hours <= 0) {
+    return `${remainingMinutes}m`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
+};
+
 const ProfileScreen = () => {
-  const alert = useAlert();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colorScheme, toggleColorScheme } = useColorScheme();
-  const [storedUser, setStoredUser] = React.useState<StoredAuthUser | null>(
-    null,
+  const setProfileResponseStore = useProfileResponseStore(
+    (state) => state.setProfileResponse,
   );
+  const [profileResponse, setProfileResponse] =
+    React.useState<ProfileResponseData | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const loadStoredUser = React.useCallback(async () => {
-    const user = await getStoredAuthUser();
-    setStoredUser(user);
-  }, []);
+  const loadProfileData = React.useCallback(async () => {
+    const response = await ProfileResponseService.getProfileResponse();
+    setProfileResponse(response);
+    setProfileResponseStore(response);
+  }, [setProfileResponseStore]);
 
   React.useEffect(() => {
-    loadStoredUser();
-  }, [loadStoredUser]);
+    loadProfileData();
+  }, [loadProfileData]);
 
   useFocusEffect(
     React.useCallback(() => {
-      loadStoredUser();
-    }, [loadStoredUser]),
+      loadProfileData();
+    }, [loadProfileData]),
   );
 
   const userData = {
-    name: storedUser?.name || "User",
-    email: storedUser?.email || "No email",
+    name: profileResponse?.user?.name || "User",
+    email: profileResponse?.user?.email || "No email",
     avatar:
-      storedUser?.profile_image ||
+      profileResponse?.user?.profile_image ||
       "https://cdn-icons-png.flaticon.com/512/9187/9187532.png",
-    joinDate: "Joined October 2024",
-    level: "Intermediate Learner",
-    points: 1250,
-    streak: 7,
-    completedCourses: 8,
-    learningTime: "42h 15m",
+    joinDate: profileResponse?.detail?.joined_label
+      ? `Joined ${profileResponse.detail.joined_label}`
+      : "Joined recently",
+    level:
+      (profileResponse?.detail?.qualification_count ?? 0) > 0
+        ? `${profileResponse?.detail?.qualification_count ?? 0} qualifications added`
+        : "Complete your profile",
+    points: profileResponse?.points?.available_points ?? 0,
+    qualifications: profileResponse?.detail?.qualification_count ?? 0,
+    purchases: profileResponse?.stats?.purchase_count ?? 0,
+    learningTime: formatTimeSpent(
+      profileResponse?.stats?.online_time_spent_minutes ?? 0,
+    ),
   };
 
   const stats = [
     { icon: "🎯", label: "Points", value: userData.points, color: "#7A25FF" },
     {
-      icon: "🔥",
-      label: "Streak",
-      value: `${userData.streak} days`,
+      icon: "🎓",
+      label: "Qualifications",
+      value: userData.qualifications,
       color: "#F59E0B",
     },
     {
       icon: "📚",
-      label: "Courses",
-      value: userData.completedCourses,
+      label: "Purchases",
+      value: userData.purchases,
       color: "#10B981",
     },
     {
@@ -136,21 +157,6 @@ const ProfileScreen = () => {
       ],
     },
     {
-      title: "Settings",
-      items: [
-        { icon: Shield, label: "Privacy", color: "#10B981" },
-        {
-          icon: Globe,
-          label: "Language",
-          color: "#3B82F6",
-          rightText: "English",
-        },
-        { icon: Lock, label: "Security", color: "#EF4444" },
-        { icon: CreditCard, label: "Payment Methods", color: "#8B5CF6" },
-        { icon: Users, label: "Family Sharing", color: "#EC4899" },
-      ],
-    },
-    {
       title: "Support",
       items: [
         { icon: HelpCircle, label: "Help Center", color: "#6B7280" },
@@ -162,8 +168,11 @@ const ProfileScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStoredUser();
-    setRefreshing(false);
+    try {
+      await loadProfileData();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const renderStatItem = (stat: any, index: number) => (
@@ -326,6 +335,11 @@ const ProfileScreen = () => {
             </View>
           ))}
         </View>
+
+        <RequestCreatorCard
+          isDark={colorScheme === "dark"}
+          onPress={() => router.push("/creator/request")}
+        />
 
         {/* App Info */}
         <View className="px-5">

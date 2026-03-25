@@ -1,7 +1,9 @@
 import { apiClient } from "@/lib/api/api-client";
 import { RealtimeDBService } from "@/lib/services/realtime-db-service";
+import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { NotificationItem, NotificationKind } from "@/components/notification/noti-card-ui";
 import { resolveNotificationRoute } from "@/lib/utils/notification-routing";
+import { getAuth } from "@react-native-firebase/auth";
 
 export interface RawNotificationRecord {
   id?: string | number;
@@ -52,6 +54,16 @@ type NotificationCollection = NotificationMap | RawNotificationRecord[] | null;
 type NotificationApiResponse =
   | RawNotificationRecord[]
   | NotificationPaginatedResponse<RawNotificationRecord>;
+
+const resolveNotificationUserId = async (): Promise<string | null> => {
+  const authUserId = getAuth().currentUser?.uid;
+  if (authUserId) {
+    return authUserId;
+  }
+
+  const storedUser = await getStoredAuthUser();
+  return storedUser?.id ?? null;
+};
 
 const buildQueryString = (params?: Record<string, unknown>): string => {
   if (!params) return "";
@@ -202,6 +214,59 @@ const isPaginatedNotificationResponse = (
   return !Array.isArray(value) && Array.isArray(value?.data);
 };
 
+const isPermissionDeniedError = (error: unknown): boolean => {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+
+  return (
+    code === "database/permission-denied" ||
+    message.toLowerCase().includes("permission-denied")
+  );
+};
+
+const fetchNotificationsFromApi = async (
+  params?: {
+    page?: number;
+    per_page?: number;
+  },
+): Promise<NotificationPaginatedResponse<AppNotificationItem>> => {
+  const query = buildQueryString({
+    page: params?.page,
+    per_page: params?.per_page,
+  });
+  const response = await apiClient.get<NotificationApiResponse>(
+    `/notifications${query}`,
+  );
+  const payload = response.data;
+
+  if (isPaginatedNotificationResponse(payload)) {
+    return {
+      ...payload,
+      data: normalizeItems(payload.data),
+    };
+  }
+
+  const items = normalizeItems(payload);
+  const currentPage = params?.page ?? 1;
+  const perPage = params?.per_page ?? Math.max(items.length, 1);
+
+  return {
+    current_page: currentPage,
+    data: items,
+    last_page: currentPage,
+    per_page: perPage,
+    total: items.length,
+    next_page_url: null,
+  };
+};
+
 export const NotificationService = {
   async fetchUserNotifications(): Promise<AppNotificationItem[]> {
     const response = await this.fetchUserNotificationsPage();
@@ -212,47 +277,116 @@ export const NotificationService = {
     page?: number;
     per_page?: number;
   }): Promise<NotificationPaginatedResponse<AppNotificationItem>> {
-    const query = buildQueryString({
-      page: params?.page,
-      per_page: params?.per_page,
-    });
-    const response = await apiClient.get<NotificationApiResponse>(
-      `/notifications${query}`,
-    );
-    const payload = response.data;
-
-    if (isPaginatedNotificationResponse(payload)) {
+    const userId = await resolveNotificationUserId();
+    if (!userId) {
       return {
-        ...payload,
-        data: normalizeItems(payload.data),
+        current_page: params?.page ?? 1,
+        data: [],
+        last_page: 1,
+        per_page: params?.per_page ?? 20,
+        total: 0,
+        next_page_url: null,
       };
     }
 
-    const items = normalizeItems(payload);
-    const currentPage = params?.page ?? 1;
-    const perPage = params?.per_page ?? items.length ?? 1;
+    try {
+      const payload = await RealtimeDBService.get<NotificationMap>(
+        `notifications/${userId}`,
+      );
 
-    return {
-      current_page: currentPage,
-      data: items,
-      last_page: currentPage,
-      per_page: perPage,
-      total: items.length,
-      next_page_url: null,
-    };
+      const items = normalizeItems(payload);
+      const currentPage = params?.page ?? 1;
+      const perPage = params?.per_page ?? Math.max(items.length, 1);
+      const start = (currentPage - 1) * perPage;
+      const pagedItems = items.slice(start, start + perPage);
+      const lastPage = Math.max(1, Math.ceil(items.length / perPage));
+
+      return {
+        current_page: currentPage,
+        data: pagedItems,
+        last_page: lastPage,
+        per_page: perPage,
+        total: items.length,
+        next_page_url: currentPage < lastPage ? String(currentPage + 1) : null,
+      };
+    } catch (error) {
+      if (!isPermissionDeniedError(error)) {
+        throw error;
+      }
+    }
+
+    return fetchNotificationsFromApi(params);
   },
 
   subscribeToUserNotifications(
-    userId: string,
-    onData: (items: AppNotificationItem[]) => void,
+    options: {
+      qualificationIds: Array<number | string>;
+      userId?: string | null;
+    },
+    onSignal: () => void,
     onError?: (error: Error) => void,
   ): () => void {
-    return RealtimeDBService.subscribe<Record<string, RawNotificationRecord>>(
+    const { userId } = options;
+    const unsubscribes: Array<() => void> = [];
+    const subscribedPaths = new Set<string>();
+    const eventTypes = ["value", "child_added", "child_changed", "child_removed"] as const;
+
+    const subscribePath = (path: string) => {
+      if (subscribedPaths.has(path)) {
+        return;
+      }
+
+      subscribedPaths.add(path);
+
+      eventTypes.forEach((eventType) => {
+        unsubscribes.push(
+          RealtimeDBService.subscribe<Record<string, unknown>>(
+            path,
+            () => {
+              onSignal();
+            },
+            (error) => {
+              if (isPermissionDeniedError(error)) {
+                return;
+              }
+
+              onError?.(error);
+            },
+            eventType,
+          ),
+        );
+      });
+    };
+
+    if (userId) {
+      subscribePath(`notifications/${userId}`);
+      subscribePath(`user_notifications/${userId}`);
+    }
+
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  },
+
+  subscribeToRealtimeNotificationItems(
+    userId: string,
+    onItems: (items: AppNotificationItem[]) => void,
+    onError?: (error: Error) => void,
+  ): () => void {
+    return RealtimeDBService.subscribe<NotificationMap>(
       `notifications/${userId}`,
       (value) => {
-        onData(normalizeItems(value));
+        onItems(normalizeItems(value));
       },
-      onError,
+      (error) => {
+        if (isPermissionDeniedError(error)) {
+          onError?.(error);
+          return;
+        }
+
+        onError?.(error);
+      },
+      "value",
     );
   },
 

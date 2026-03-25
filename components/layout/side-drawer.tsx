@@ -1,4 +1,5 @@
 // components/navigation/side-drawer.tsx
+import RequestCreatorCard from "@/components/creator/request-creator-card";
 import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -308,9 +309,14 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
 
           {/* Menu Content */}
           <ScrollView
-            className="flex-1 mb-2"
+            className="flex-1 mb-2 pt-2"
             showsVerticalScrollIndicator={false}
           >
+            <RequestCreatorCard
+              isDark={isDark}
+              onPress={() => handleNavigation("/creator/request")}
+            />
+
             {menuSections.map((section, index) => (
               <View key={index} className="mb-2">
                 {section.title && (

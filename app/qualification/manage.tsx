@@ -1,8 +1,14 @@
 import QualificationModal from "@/components/modal/qualification-modal";
 import ManageQualificationSkeleton from "@/components/qualification/manage-qualification-skeleton";
 import { BackButton } from "@/components/ui/back-button";
-import { UserProfile, UserService } from "@/lib/services/user-service";
+import {
+  ProfileResponseService,
+  type ProfileResponseData,
+  type ProfileResponseQualification,
+} from "@/lib/services/profile-response-service";
+import { UserService } from "@/lib/services/user-service";
 import { useAlert } from "@/providers/alert-provider";
+import { useProfileResponseStore } from "@/store/profile-response-store";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { X } from "lucide-react-native";
@@ -25,7 +31,7 @@ type QualificationChip = {
 };
 
 const extractQualificationChips = (
-  qualifications: UserProfile["qualifications"],
+  qualifications?: ProfileResponseQualification[] | null,
 ): QualificationChip[] => {
   if (!Array.isArray(qualifications)) {
     return [];
@@ -33,10 +39,6 @@ const extractQualificationChips = (
 
   return qualifications
     .map((item) => {
-      if (typeof item === "number") {
-        return { id: item, name: `Qualification ${item}` };
-      }
-
       if (item?.id) {
         return {
           id: item.id,
@@ -55,14 +57,24 @@ export default function ManageQualificationScreen() {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === "dark";
+  const profileResponse = useProfileResponseStore(
+    (state) => state.profileResponse,
+  );
+  const setProfileResponseStore = useProfileResponseStore(
+    (state) => state.setProfileResponse,
+  );
 
   const [selectedQualificationChips, setSelectedQualificationChips] = useState<
     QualificationChip[]
-  >([]);
+  >(() => extractQualificationChips(profileResponse?.detail?.qualifications));
   const [initialQualificationIds, setInitialQualificationIds] = useState<
     number[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
+  >(() =>
+    extractQualificationChips(profileResponse?.detail?.qualifications).map(
+      (item) => item.id,
+    ),
+  );
+  const [isLoading, setIsLoading] = useState(!profileResponse);
   const [isSaving, setIsSaving] = useState(false);
   const [showQualificationModal, setShowQualificationModal] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -84,9 +96,10 @@ export default function ManageQualificationScreen() {
     setLoadError(null);
 
     try {
-      const user = await UserService.getMe();
+      const response = await ProfileResponseService.getProfileResponse();
+      setProfileResponseStore(response);
       const qualificationChips = extractQualificationChips(
-        user?.qualifications,
+        response?.detail?.qualifications,
       );
       setSelectedQualificationChips(qualificationChips);
       setInitialQualificationIds(qualificationChips.map((item) => item.id));
@@ -101,11 +114,27 @@ export default function ManageQualificationScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [showError]);
+  }, [setProfileResponseStore, showError]);
 
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+    if (!profileResponse) {
+      return;
+    }
+
+    const qualificationChips = extractQualificationChips(
+      profileResponse.detail?.qualifications,
+    );
+    setSelectedQualificationChips(qualificationChips);
+    setInitialQualificationIds(qualificationChips.map((item) => item.id));
+    setIsLoading(false);
+    setLoadError(null);
+  }, [profileResponse]);
+
+  useEffect(() => {
+    if (!profileResponse) {
+      loadProfile();
+    }
+  }, [loadProfile, profileResponse]);
 
   const selectedIds = useMemo(
     () => selectedQualificationChips.map((item) => item.id),
@@ -156,6 +185,26 @@ export default function ManageQualificationScreen() {
         await UserService.detachMyQualifications();
       } else {
         await UserService.updateMe({ qualifications: selectedIds });
+      }
+
+      if (profileResponse) {
+        const nextQualifications = selectedQualificationChips.map((item) => ({
+          id: item.id,
+          name: item.name,
+          slug: null,
+          description: null,
+        }));
+
+        const nextProfileResponse: ProfileResponseData = {
+          ...profileResponse,
+          detail: {
+            ...profileResponse.detail,
+            qualifications: nextQualifications,
+            qualification_count: nextQualifications.length,
+          },
+        };
+
+        setProfileResponseStore(nextProfileResponse);
       }
 
       setInitialQualificationIds(selectedIds);
@@ -247,7 +296,7 @@ export default function ManageQualificationScreen() {
       >
         <View
           className="px-5 flex-row items-center justify-between"
-          style={{ paddingTop: insets.top + 4 }}
+          style={{ paddingTop: insets.top + 1 }}
         >
           <BackButton onPress={() => router.back()} />
           <Text className="text-2xl font-bold text-gray-900 dark:text-white">

@@ -32,7 +32,9 @@ const NotificationContext = createContext<NotificationContextType | undefined>(
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error("useNotifications must be used within a NotificationProvider");
+    throw new Error(
+      "useNotifications must be used within a NotificationProvider",
+    );
   }
   return context;
 };
@@ -88,37 +90,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     let isMounted = true;
-    let hasRealtimeSnapshot = false;
 
-    const unsubscribe = NotificationService.subscribeToUserNotifications(
+    const unsubscribe = NotificationService.subscribeToRealtimeNotificationItems(
       notificationUserId,
       (items) => {
-        hasRealtimeSnapshot = true;
         if (!isMounted) return;
+
         setNotifications(items);
         setLoading(false);
       },
       (error) => {
-        console.log("Notification subscription error:", error);
-        if (isMounted) {
-          setLoading(false);
-        }
+        console.log("Realtime notifications unavailable, using fetch fallback:", error);
+
+        void NotificationService.fetchUserNotifications()
+          .then((items) => {
+            if (!isMounted) return;
+            setNotifications(items);
+          })
+          .catch((fetchError) => {
+            console.log("Notification fetch fallback failed:", fetchError);
+          })
+          .finally(() => {
+            if (isMounted) {
+              setLoading(false);
+            }
+          });
       },
     );
-
-    NotificationService.fetchUserNotifications()
-      .then((items) => {
-        if (!isMounted || hasRealtimeSnapshot) return;
-        setNotifications(items);
-      })
-      .catch((error) => {
-        console.log("Notification fetch fallback failed:", error);
-      })
-      .finally(() => {
-        if (isMounted && !hasRealtimeSnapshot) {
-          setLoading(false);
-        }
-      });
 
     return () => {
       isMounted = false;
@@ -126,25 +124,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
   }, [notificationUserId]);
 
-  const markAsRead = useCallback(async (item: AppNotificationItem) => {
-    if (!item.unread) return;
+  const markAsRead = useCallback(
+    async (item: AppNotificationItem) => {
+      if (!item.unread) return;
 
-    const previousNotifications = notifications;
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === item.id
-          ? { ...notification, unread: false }
-          : notification,
-      ),
-    );
+      const previousNotifications = notifications;
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === item.id
+            ? { ...notification, unread: false }
+            : notification,
+        ),
+      );
 
-    try {
-      await NotificationService.markAsRead(item.id);
-    } catch (error) {
-      console.log("Mark notification as read failed:", error);
-      setNotifications(previousNotifications);
-    }
-  }, [notifications]);
+      try {
+        await NotificationService.markAsRead(item.id);
+      } catch (error) {
+        console.log("Mark notification as read failed:", error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [notifications],
+  );
 
   const markAllAsRead = useCallback(async () => {
     if (unreadCount === 0) return;
@@ -162,19 +163,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications, unreadCount]);
 
-  const deleteNotification = useCallback(async (item: AppNotificationItem) => {
-    const previousNotifications = notifications;
-    setNotifications((current) =>
-      current.filter((notification) => notification.id !== item.id),
-    );
+  const deleteNotification = useCallback(
+    async (item: AppNotificationItem) => {
+      const previousNotifications = notifications;
+      setNotifications((current) =>
+        current.filter((notification) => notification.id !== item.id),
+      );
 
-    try {
-      await NotificationService.deleteNotification(item.id);
-    } catch (error) {
-      console.log("Delete notification failed:", error);
-      setNotifications(previousNotifications);
-    }
-  }, [notifications]);
+      try {
+        await NotificationService.deleteNotification(item.id);
+      } catch (error) {
+        console.log("Delete notification failed:", error);
+        setNotifications(previousNotifications);
+      }
+    },
+    [notifications],
+  );
 
   return (
     <NotificationContext.Provider

@@ -68,7 +68,7 @@ export const UserService = {
   },
 
   async deleteMyCreatorProfile() {
-    const res = await apiClient.delete("/create-user/me/creator");
+    const res = await apiClient.delete("/creators/me");
     return res.data;
   },
 

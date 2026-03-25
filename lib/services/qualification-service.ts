@@ -48,6 +48,10 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
+export type QualificationListResponse =
+  | PaginatedResponse<Qualification>
+  | Qualification[];
+
 /**
  * Standard API response wrapper
  */
@@ -67,6 +71,7 @@ export interface QualificationFilters {
   status?: "active" | "inactive";
   sort?: string; // e.g. "name" or "-created_at" or "name,-created_at"
   per_page?: number;
+  page?: number;
 }
 
 /**
@@ -136,14 +141,15 @@ class QualificationService {
    * Get public qualifications (no auth required)
    * Returns only approved and active qualifications
    */
-  async getPublic(filters: QualificationFilters = {}) {
+  async getPublic(
+    filters: QualificationFilters = {},
+  ): Promise<QualificationListResponse> {
     try {
       const query = this.buildQueryString(filters);
-      const response = await apiClient.get<PaginatedResponse<Qualification>>(
+      const response = await apiClient.get<QualificationListResponse>(
         `/qualifications/public${query}`,
       );
 
-      // Return the full paginated response
       return response.data;
     } catch (error) {
       console.error("Error fetching public qualifications:", error);

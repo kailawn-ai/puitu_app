@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface QualificationModalProps {
@@ -33,6 +34,8 @@ const QualificationModal = ({
 }: QualificationModalProps) => {
   const insets = useSafeAreaInsets();
   const alert = useAlert();
+  const { colorScheme } = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
   const backdropOpacity = React.useRef(new Animated.Value(0)).current;
   const [searchQuery, setSearchQuery] = useState("");
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
@@ -138,50 +141,53 @@ const QualificationModal = ({
       <View className="flex-1 justify-end">
         <Animated.View
           pointerEvents="none"
-          className="absolute inset-0 bg-black/85"
+          className="absolute inset-0 bg-black"
           style={{ opacity: backdropOpacity }}
         />
-        <View className="h-4/5 rounded-t-lg bg-background shadow-hard">
-          <View className="flex-row items-center justify-between rounded-t-lg border-b border-primary-600 bg-primary px-5 py-5">
-            <Text className="text-lg font-bold text-text-light">
+        <View className="h-4/5 rounded-t-[32px] border border-slate-200 bg-white shadow-hard dark:border-secondary-700 dark:bg-secondary-900">
+          <View className="flex-row items-center justify-between rounded-t-[32px] border-b border-slate-200 bg-slate-50 px-5 py-5 dark:border-secondary-700 dark:bg-secondary-800">
+            <Text className="text-lg font-bold text-slate-900 dark:text-white">
               Select Qualifications
             </Text>
-            <TouchableOpacity onPress={handleClose} className="p-1">
-              <X color="#fff" size={24} />
+            <TouchableOpacity
+              onPress={handleClose}
+              className="h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-secondary-700"
+            >
+              <X color={isDarkMode ? "#E2E8F0" : "#0F172A"} size={20} />
             </TouchableOpacity>
           </View>
 
-          <View className="mx-4 my-4 flex-row items-center rounded-full border border-border bg-background-card px-4 py-1">
-            <Search color="#737373" size={20} />
+          <View className="mx-4 my-4 flex-row items-center rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-1 dark:border-secondary-700 dark:bg-secondary-800">
+            <Search color={isDarkMode ? "#94A3B8" : "#737373"} size={20} />
             <TextInput
-              className="ml-2.5 h-11 flex-1 text-base text-text"
+              className="ml-2.5 h-11 flex-1 text-base text-slate-900 dark:text-white"
               placeholder="Search qualifications..."
-              placeholderTextColor="#737373"
+              placeholderTextColor={isDarkMode ? "#94A3B8" : "#737373"}
               value={searchQuery}
               onChangeText={handleSearch}
             />
           </View>
 
           {selectedQualifications.length > 0 && (
-            <View className="mb-3 pl-1">
+            <View className="mb-3 pl-4">
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 data={selectedQualifications}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
-                  <View className="mr-2 flex-row items-center rounded-full border border-primary-200 bg-primary-50 px-3 py-2">
+                  <View className="mr-2 flex-row items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-2 dark:border-primary/30 dark:bg-primary/15">
                     <Text
-                      className="max-w-[160px] text-sm font-medium text-primary-700"
+                      className="max-w-[160px] text-sm font-medium text-primary dark:text-primary-200"
                       numberOfLines={1}
                     >
                       {item.name}
                     </Text>
                     <TouchableOpacity
-                      className="ml-2 h-5 w-5 items-center justify-center rounded-full bg-primary-100"
+                      className="ml-2 h-5 w-5 items-center justify-center rounded-full bg-primary/15 dark:bg-primary/25"
                       onPress={() => toggleQualification(item.id)}
                     >
-                      <X color="#4A00B3" size={12} />
+                      <X color={isDarkMode ? "#C4B5FD" : "#4A00B3"} size={12} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -195,10 +201,10 @@ const QualificationModal = ({
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <TouchableOpacity
-                className={`mb-2 flex-row items-center justify-between rounded-md border px-4 py-4 ${
+                className={`mb-2 flex-row items-center justify-between rounded-2xl border px-4 py-4 ${
                   selected.includes(item.id)
-                    ? "border-primary-600 bg-primary"
-                    : "border-border bg-background-card"
+                    ? "border-primary bg-primary"
+                    : "border-slate-200 bg-white dark:border-secondary-700 dark:bg-secondary-800"
                 }`}
                 onPress={() => toggleQualification(item.id)}
               >
@@ -206,8 +212,8 @@ const QualificationModal = ({
                   <Text
                     className={`mb-1 text-base font-semibold ${
                       selected.includes(item.id)
-                        ? "text-text-light"
-                        : "text-text"
+                        ? "text-white"
+                        : "text-slate-900 dark:text-white"
                     }`}
                   >
                     {item.name}
@@ -217,7 +223,7 @@ const QualificationModal = ({
                       className={`text-xs ${
                         selected.includes(item.id)
                           ? "text-primary-100"
-                          : "text-text-muted"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                       numberOfLines={1}
                     >
@@ -238,7 +244,7 @@ const QualificationModal = ({
             ListEmptyComponent={() =>
               !loading && (
                 <View className="items-center justify-center px-10 py-10">
-                  <Text className="text-base text-text-muted">
+                  <Text className="text-base text-slate-500 dark:text-slate-400">
                     No qualifications found
                   </Text>
                 </View>
@@ -248,10 +254,10 @@ const QualificationModal = ({
           />
 
           <View
-            className="flex-row items-center justify-between border-t border-border bg-background px-4 pt-4"
+            className="flex-row items-center justify-between border-t border-slate-200 bg-white px-4 pt-4 dark:border-secondary-700 dark:bg-secondary-900"
             style={{ paddingBottom: insets.bottom + 10 }}
           >
-            <Text className="text-sm font-medium text-text-muted">
+            <Text className="text-sm font-medium text-slate-500 dark:text-slate-400">
               {selected.length} selected
             </Text>
             <TouchableOpacity
@@ -259,7 +265,7 @@ const QualificationModal = ({
               onPress={handleSave}
             >
               <Text className="text-base font-semibold text-text-light">
-                Save
+                Select
               </Text>
             </TouchableOpacity>
           </View>

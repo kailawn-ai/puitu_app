@@ -1,14 +1,23 @@
 import EditProfileSkeleton from "@/components/profile/edit-profile-skeleton";
 import { BackButton } from "@/components/ui/back-button";
+import { FirebaseUploadService } from "@/lib/services/firebase-upload-service";
+import {
+  ProfileResponseService,
+  type ProfileResponseData,
+} from "@/lib/services/profile-response-service";
 import { UserPayload, UserService } from "@/lib/services/user-service";
 import { saveAuthUserToStore } from "@/lib/utils/auth-user-store";
 import { useAlert } from "@/providers/alert-provider";
+import { useProfileResponseStore } from "@/store/profile-response-store";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { Camera, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,6 +31,7 @@ import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type EditFormData = {
+  profileImage: string;
   name: string;
   email: string;
   phone: string;
@@ -31,15 +41,18 @@ type EditFormData = {
   town: string;
 };
 
-const EMPTY_FORM: EditFormData = {
-  name: "",
-  email: "",
-  phone: "",
-  country: "",
-  state: "",
-  district: "",
-  town: "",
-};
+const mapProfileResponseToForm = (
+  profileResponse?: ProfileResponseData | null,
+): EditFormData => ({
+  profileImage: profileResponse?.user?.profile_image ?? "",
+  name: profileResponse?.user?.name ?? "",
+  email: profileResponse?.user?.email ?? "",
+  phone: profileResponse?.user?.phone ?? "",
+  country: profileResponse?.user?.country ?? "",
+  state: profileResponse?.user?.state ?? "",
+  district: profileResponse?.user?.district ?? "",
+  town: profileResponse?.user?.town ?? "",
+});
 
 const EditProfileScreen = () => {
   const { showError, showWarning } = useAlert();
@@ -47,11 +60,23 @@ const EditProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === "dark";
+  const profileResponse = useProfileResponseStore(
+    (state) => state.profileResponse,
+  );
+  const setProfileResponseStore = useProfileResponseStore(
+    (state) => state.setProfileResponse,
+  );
 
-  const [formData, setFormData] = useState<EditFormData>(EMPTY_FORM);
-  const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState<EditFormData>(() =>
+    mapProfileResponseToForm(profileResponse),
+  );
+  const [isLoading, setIsLoading] = useState(!profileResponse);
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [avatarPreviewUri, setAvatarPreviewUri] = useState(
+    profileResponse?.user?.profile_image ?? "",
+  );
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -70,17 +95,10 @@ const EditProfileScreen = () => {
     setLoadError(null);
 
     try {
-      const user = await UserService.getMe();
-
-      setFormData({
-        name: user?.name ?? "",
-        email: user?.email ?? "",
-        phone: user?.phone ?? "",
-        country: user?.country ?? "",
-        state: user?.state ?? "",
-        district: user?.district ?? "",
-        town: user?.town ?? "",
-      });
+      const response = await ProfileResponseService.getProfileResponse();
+      setProfileResponseStore(response);
+      setFormData(mapProfileResponseToForm(response));
+      setAvatarPreviewUri(response?.user?.profile_image ?? "");
     } catch (err: any) {
       const errorMessage =
         err?.data?.error ||
@@ -93,23 +111,100 @@ const EditProfileScreen = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [showError]);
+  }, [setProfileResponseStore, showError]);
 
   useEffect(() => {
-    loadProfile();
+    if (!profileResponse) {
+      return;
+    }
+
+    setFormData(mapProfileResponseToForm(profileResponse));
+    setAvatarPreviewUri(profileResponse?.user?.profile_image ?? "");
+    setIsLoading(false);
+    setLoadError(null);
+  }, [profileResponse]);
+
+  useEffect(() => {
+    if (!profileResponse) {
+      loadProfile();
+    }
   }, [loadProfile]);
 
   const handleChange = (field: keyof EditFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handlePickAvatar = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        showWarning(
+          "Permission needed",
+          "Please allow photo library access to choose a profile photo.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const previousAvatarUrl = formData.profileImage;
+      const previousPreviewUri = avatarPreviewUri;
+
+      setAvatarPreviewUri(asset.uri);
+      setIsUploadingAvatar(true);
+
+      try {
+        const upload = await FirebaseUploadService.uploadProfileAsset({
+          uri: asset.uri,
+          name: asset.fileName || `profile-avatar-${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        });
+
+        setFormData((prev) => ({ ...prev, profileImage: upload.url }));
+        setAvatarPreviewUri(upload.url);
+      } catch (error: any) {
+        setFormData((prev) => ({ ...prev, profileImage: previousAvatarUrl }));
+        setAvatarPreviewUri(previousPreviewUri);
+        showError(
+          "Upload failed",
+          error?.message || "We could not upload the profile photo.",
+        );
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    } catch (error: any) {
+      showError(
+        "Picker error",
+        error?.message || "We could not open the image picker.",
+      );
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setFormData((prev) => ({ ...prev, profileImage: "" }));
+    setAvatarPreviewUri("");
+  };
+
   const isSaveDisabled = useMemo(
     () =>
       isSaving ||
+      isUploadingAvatar ||
       !formData.name.trim() ||
       !formData.email.trim() ||
       !formData.phone.trim(),
-    [formData, isSaving],
+    [formData, isSaving, isUploadingAvatar],
   );
 
   const handleSave = async () => {
@@ -132,6 +227,7 @@ const EditProfileScreen = () => {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim(),
+      profile_image: formData.profileImage.trim() || undefined,
       country: formData.country.trim() || undefined,
       state: formData.state.trim() || undefined,
       district: formData.district.trim() || undefined,
@@ -141,13 +237,58 @@ const EditProfileScreen = () => {
     setIsSaving(true);
     try {
       const updatedUser = await UserService.updateMe(payload);
+      const nextProfileResponse: ProfileResponseData | null = profileResponse
+        ? {
+            ...profileResponse,
+            user: {
+              ...profileResponse.user,
+              id: updatedUser?.id ?? profileResponse.user.id,
+              name:
+                updatedUser?.name ?? payload.name ?? profileResponse.user.name,
+              email:
+                updatedUser?.email ??
+                payload.email ??
+                profileResponse.user.email,
+              phone:
+                updatedUser?.phone ??
+                payload.phone ??
+                profileResponse.user.phone,
+              profile_image:
+                updatedUser?.profile_image ??
+                payload.profile_image ??
+                profileResponse.user.profile_image,
+              country:
+                updatedUser?.country ??
+                payload.country ??
+                profileResponse.user.country,
+              state:
+                updatedUser?.state ??
+                payload.state ??
+                profileResponse.user.state,
+              district:
+                updatedUser?.district ??
+                payload.district ??
+                profileResponse.user.district,
+              town:
+                updatedUser?.town ?? payload.town ?? profileResponse.user.town,
+              is_active:
+                updatedUser?.is_active ?? profileResponse.user.is_active,
+            },
+          }
+        : null;
+
+      if (nextProfileResponse) {
+        setProfileResponseStore(nextProfileResponse);
+      }
+
       await saveAuthUserToStore(
         {
           id: updatedUser?.id ?? null,
           name: updatedUser?.name ?? formData.name,
           email: updatedUser?.email ?? formData.email,
           phone: updatedUser?.phone ?? formData.phone,
-          profile_image: updatedUser?.profile_image ?? null,
+          profile_image:
+            updatedUser?.profile_image ?? formData.profileImage ?? null,
           country: updatedUser?.country ?? formData.country,
           state: updatedUser?.state ?? formData.state,
           district: updatedUser?.district ?? formData.district,
@@ -190,7 +331,7 @@ const EditProfileScreen = () => {
         >
           <View
             className="px-5 flex-row items-center justify-between"
-            style={{ paddingTop: insets.top + 4 }}
+            style={{ paddingTop: insets.top + 1 }}
           >
             <BackButton onPress={() => router.back()} />
             <Text className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -247,7 +388,7 @@ const EditProfileScreen = () => {
         style={{ flex: 1 }}
       >
         <View
-          className="px-5 flex-row items-center justify-between"
+          className="px-5 flex-row items-center justify-between mb-2"
           style={{ paddingTop: insets.top + 4 }}
         >
           <BackButton onPress={() => router.back()} />
@@ -258,14 +399,64 @@ const EditProfileScreen = () => {
         </View>
 
         <ScrollView
-          className="mt-4"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
-            paddingBottom: Math.max(insets.bottom + 120, 144),
+            paddingBottom: Math.max(insets.bottom + 120),
+            paddingTop: Math.max(insets.top - 20),
           }}
         >
           <View className="px-5">
             <View className="rounded-3xl px-4">
+              <View className="items-center">
+                <View className="relative">
+                  <TouchableOpacity
+                    onPress={handlePickAvatar}
+                    disabled={isUploadingAvatar}
+                  >
+                    <View className="h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] bg-white dark:bg-secondary-900">
+                      {avatarPreviewUri ? (
+                        <Image
+                          source={{ uri: avatarPreviewUri }}
+                          className="h-full w-full"
+                        />
+                      ) : (
+                        <View className="items-center justify-center">
+                          <Camera
+                            size={28}
+                            color={isDarkMode ? "#CBD5E1" : "#64748B"}
+                          />
+                        </View>
+                      )}
+
+                      {isUploadingAvatar ? (
+                        <View className="absolute inset-0 items-center justify-center bg-black/35">
+                          <ActivityIndicator color="#FFFFFF" />
+                        </View>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+
+                  {avatarPreviewUri ? (
+                    <TouchableOpacity
+                      onPress={handleRemoveAvatar}
+                      className="absolute -right-2 -top-2 rounded-full bg-slate-900 p-2 dark:bg-white"
+                      disabled={isUploadingAvatar}
+                    >
+                      <X size={14} color={isDarkMode ? "#0F172A" : "#FFFFFF"} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                <Text className="mt-4 text-lg font-bold text-gray-900 dark:text-white">
+                  Profile photo
+                </Text>
+                <Text className="mt-1 text-center text-sm text-gray-500 dark:text-gray-400">
+                  Tap to upload a square photo for your profile.
+                </Text>
+              </View>
+
+              <View className="my-5 h-px bg-slate-200 dark:bg-secondary-700" />
+
               <Text className="text-lg font-bold text-gray-900 dark:text-white">
                 Personal Info
               </Text>

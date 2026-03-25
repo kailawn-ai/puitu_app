@@ -1,12 +1,10 @@
 import { BackButton } from "@/components/ui/back-button";
-import { OrderService } from "@/lib/services/order-service";
 import {
   Product,
   ProductService,
   ResolveProductParams,
 } from "@/lib/services/product-service";
-import { RazorpayService } from "@/lib/services/razorpay-service";
-import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
+import { SubscriptionService } from "@/lib/services/subscription-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CreditCard, ShieldCheck, Sparkles } from "lucide-react-native";
@@ -85,34 +83,9 @@ const PaymentScreen = () => {
     setPaying(true);
 
     try {
-      const authUser = await getStoredAuthUser();
-      const orderResponse = await OrderService.createOrder({
-        product_id: product.id,
-        payment_method: "razorpay",
-      });
-
-      if (!orderResponse.razorpay_order) {
-        throw new Error("Razorpay order was not returned by the backend.");
-      }
-
-      const checkoutResult = await RazorpayService.openCheckout({
-        order: orderResponse.order,
-        razorpayOrder: orderResponse.razorpay_order,
-        title: product.name,
-        description:
-          product.description ?? "Secure checkout powered by Razorpay",
-        prefill: {
-          email: authUser?.email ?? undefined,
-          contact: authUser?.phone ?? undefined,
-          name: authUser?.name ?? undefined,
-        },
-      });
-
-      await OrderService.verifyPayment({
-        order_id: orderResponse.order.id,
-        razorpay_order_id: checkoutResult.razorpay_order_id,
-        razorpay_payment_id: checkoutResult.razorpay_payment_id,
-        razorpay_signature: checkoutResult.razorpay_signature,
+      await SubscriptionService.purchaseProduct({
+        product,
+        paymentMethod: "razorpay",
       });
 
       Alert.alert("Payment successful", "Your purchase has been activated.", [

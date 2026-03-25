@@ -126,6 +126,8 @@ export interface ApiEnvelope<T> {
   error?: string;
 }
 
+export type CourseListResponse = ApiEnvelope<Course[]> | Course[];
+
 export const CourseService = {
   async getCourses(params?: CourseListParams): Promise<ApiEnvelope<Course[]>> {
     const res = await apiClient.get("/courses", { params });
@@ -189,7 +191,7 @@ export const CourseService = {
       per_page?: number;
       page?: number;
     },
-  ): Promise<ApiEnvelope<Course[]>> {
+  ): Promise<CourseListResponse> {
     const res = await apiClient.get(
       `/courses/by-qualification/${qualificationId}`,
       { params },

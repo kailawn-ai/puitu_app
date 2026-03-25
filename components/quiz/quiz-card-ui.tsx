@@ -5,6 +5,7 @@ import { Image, Text, TouchableOpacity, View } from "react-native";
 interface Props {
   quiz: Quiz;
   onPress?: (quiz: Quiz) => void;
+  fullWidth?: boolean;
 }
 
 const hardnessColor = (hardness?: string) => {
@@ -18,13 +19,13 @@ const hardnessColor = (hardness?: string) => {
   }
 };
 
-export default function QuizCard({ quiz, onPress }: Props) {
+export default function QuizCard({ quiz, onPress, fullWidth = false }: Props) {
   return (
     <TouchableOpacity
-      style={{ width: 240 }}
+      style={fullWidth ? undefined : { width: 240 }}
       activeOpacity={0.9}
       onPress={() => onPress?.(quiz)}
-      className="mb-10"
+      className={fullWidth ? "mb-4 w-full" : "mb-10"}
     >
       <View className="rounded-2xl overflow-hidden bg-white dark:bg-secondary-800 shadow-sm">
         <View className="relative h-36 bg-slate-200 dark:bg-secondary-700">
