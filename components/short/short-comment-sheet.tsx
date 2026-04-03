@@ -7,10 +7,11 @@ import { Send, X, Heart, MoreVertical } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  type AlertButton,
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -21,6 +22,7 @@ import {
   View,
   Dimensions,
 } from "react-native";
+import auth from "@react-native-firebase/auth";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -59,23 +61,239 @@ const formatTimeAgo = (dateString?: string) => {
   return date.toLocaleDateString();
 };
 
+const getReplyTargetName = (comment: ShortComment) =>
+  comment.reply_to?.user?.name?.trim() || "";
+
+const getCommentTimestamp = (comment: ShortComment) => {
+  const parsed = new Date(comment.created_at ?? "").getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const flattenComments = (items: ShortComment[]): ShortComment[] =>
+  items.flatMap((comment) => [
+    comment,
+    ...(comment.replies ? flattenComments(comment.replies) : []),
+  ]);
+
+const getRootCommentId = (
+  commentId: number,
+  commentMap: Map<number, ShortComment>,
+): number => {
+  let currentId = commentId;
+  let safetyCounter = 0;
+
+  while (safetyCounter < 20) {
+    const currentComment = commentMap.get(currentId);
+    if (!currentComment?.reply_to_id) {
+      return currentId;
+    }
+
+    currentId = currentComment.reply_to_id;
+    safetyCounter += 1;
+  }
+
+  return commentId;
+};
+
+const sortComments = (
+  items: ShortComment[],
+  options: { nested?: boolean } = {},
+): ShortComment[] => {
+  const { nested = false } = options;
+
+  return [...items]
+    .map((comment) => ({
+      ...comment,
+      replies: comment.replies?.length
+        ? sortComments(comment.replies, { nested: true })
+        : (comment.replies ?? []),
+    }))
+    .sort((left, right) => {
+      if ((left.is_pinned ?? false) !== (right.is_pinned ?? false)) {
+        return left.is_pinned ? -1 : 1;
+      }
+
+      return nested
+        ? getCommentTimestamp(left) - getCommentTimestamp(right)
+        : getCommentTimestamp(right) - getCommentTimestamp(left);
+    });
+};
+
+const buildCommentTree = (items: ShortComment[]): ShortComment[] => {
+  const flatComments = flattenComments(items);
+  const commentMap = new Map<number, ShortComment>();
+  const roots: ShortComment[] = [];
+
+  flatComments.forEach((comment) => {
+    commentMap.set(comment.id, {
+      ...comment,
+      replies: [],
+    });
+  });
+
+  flatComments.forEach((comment) => {
+    const normalizedComment = commentMap.get(comment.id);
+    if (!normalizedComment) return;
+
+    if (comment.reply_to_id) {
+      const directParent = commentMap.get(comment.reply_to_id);
+      const rootParent = commentMap.get(
+        getRootCommentId(comment.reply_to_id, commentMap),
+      );
+
+      if (directParent) {
+        normalizedComment.reply_to = normalizedComment.reply_to ?? directParent;
+      }
+
+      if (rootParent) {
+        rootParent.replies = [...(rootParent.replies ?? []), normalizedComment];
+        return;
+      }
+    }
+
+    roots.push(normalizedComment);
+  });
+
+  return sortComments(roots);
+};
+
+const insertCommentIntoTree = (
+  items: ShortComment[],
+  newComment: ShortComment,
+): ShortComment[] => {
+  const itemExists = (commentsToCheck: ShortComment[]): boolean =>
+    commentsToCheck.some(
+      (comment) =>
+        comment.id === newComment.id ||
+        (comment.replies?.length ? itemExists(comment.replies) : false),
+    );
+
+  if (itemExists(items)) {
+    return items;
+  }
+
+  if (!newComment.reply_to_id) {
+    return [newComment, ...items];
+  }
+
+  const findCommentById = (
+    commentsToSearch: ShortComment[],
+    commentId: number,
+  ): ShortComment | null => {
+    for (const comment of commentsToSearch) {
+      if (comment.id === commentId) {
+        return comment;
+      }
+
+      if (comment.replies?.length) {
+        const nestedMatch = findCommentById(comment.replies, commentId);
+        if (nestedMatch) {
+          return nestedMatch;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const getRootThreadId = (
+    commentsToSearch: ShortComment[],
+    commentId: number,
+  ): number => {
+    let currentId = commentId;
+    let safetyCounter = 0;
+
+    while (safetyCounter < 20) {
+      const currentComment = findCommentById(commentsToSearch, currentId);
+      if (!currentComment?.reply_to_id) {
+        return currentId;
+      }
+
+      currentId = currentComment.reply_to_id;
+      safetyCounter += 1;
+    }
+
+    return commentId;
+  };
+
+  const rootThreadId = getRootThreadId(items, newComment.reply_to_id);
+  const replyTargetComment = findCommentById(items, newComment.reply_to_id);
+  let inserted = false;
+
+  const nextItems = items.map((comment) => {
+    if (comment.id === rootThreadId) {
+      inserted = true;
+      return {
+        ...comment,
+        replies: [
+          ...(comment.replies ?? []),
+          {
+            ...newComment,
+            reply_to: newComment.reply_to ?? replyTargetComment ?? undefined,
+          },
+        ],
+      };
+    }
+
+    return comment;
+  });
+
+  return sortComments(inserted ? nextItems : [newComment, ...nextItems]);
+};
+
+const updateCommentInTree = (
+  items: ShortComment[],
+  commentId: number,
+  updater: (comment: ShortComment) => ShortComment,
+): ShortComment[] => {
+  let changed = false;
+
+  const nextItems = items.map((comment) => {
+    if (comment.id === commentId) {
+      changed = true;
+      return updater(comment);
+    }
+
+    if (comment.replies?.length) {
+      const nextReplies = updateCommentInTree(
+        comment.replies,
+        commentId,
+        updater,
+      );
+      if (nextReplies !== comment.replies) {
+        changed = true;
+        return {
+          ...comment,
+          replies: nextReplies,
+        };
+      }
+    }
+
+    return comment;
+  });
+
+  return changed ? sortComments(nextItems) : items;
+};
+
 function CommentRow({
   comment,
   onReply,
+  onToggleLike,
+  onOpenMenu,
+  canManageComment,
   nested = false,
 }: {
   comment: ShortComment;
   onReply: (comment: ShortComment) => void;
+  onToggleLike: (comment: ShortComment) => void;
+  onOpenMenu: (comment: ShortComment) => void;
+  canManageComment: boolean;
   nested?: boolean;
 }) {
   const authorName = getAuthorName(comment);
-  const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(comment.likes_count || 0);
-
-  const handleLike = () => {
-    setLiked((prev) => !prev);
-    setLikesCount((prev) => (liked ? Math.max(0, prev - 1) : prev + 1));
-  };
+  const replyTargetName = getReplyTargetName(comment);
+  const liked = comment.liked_by_me ?? false;
+  const likesCount = comment.likes_count || 0;
 
   return (
     <View className={nested ? "mt-4 ml-12" : "mt-5"}>
@@ -102,6 +320,11 @@ function CommentRow({
           </View>
 
           <Text className="mt-1.5 text-[14px] leading-5 text-white/90">
+            {replyTargetName ? (
+              <Text className="font-semibold text-xs text-[#FF6B6B]">
+                @{replyTargetName}{" "}
+              </Text>
+            ) : null}
             {comment.body}
           </Text>
 
@@ -116,7 +339,7 @@ function CommentRow({
 
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={handleLike}
+              onPress={() => onToggleLike(comment)}
               className="flex-row items-center gap-x-1.5"
             >
               {liked ? (
@@ -133,16 +356,27 @@ function CommentRow({
           </View>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.7}
-          className="h-8 w-8 items-center justify-center rounded-full"
-        >
-          <MoreVertical size={16} color="#FFFFFF" strokeWidth={1.5} />
-        </TouchableOpacity>
+        {canManageComment ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onOpenMenu(comment)}
+            className="h-8 w-8 items-center justify-center rounded-full"
+          >
+            <MoreVertical size={16} color="#FFFFFF" strokeWidth={1.5} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {comment.replies?.map((reply) => (
-        <CommentRow key={reply.id} comment={reply} onReply={onReply} nested />
+        <CommentRow
+          key={reply.id}
+          comment={reply}
+          onReply={onReply}
+          onToggleLike={onToggleLike}
+          onOpenMenu={onOpenMenu}
+          canManageComment={canManageComment}
+          nested
+        />
       ))}
     </View>
   );
@@ -167,6 +401,8 @@ export default function ShortCommentSheet({
   const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const inputRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const currentUserId = auth().currentUser?.uid ?? null;
+  const canPinComments = short?.user_id === currentUserId;
 
   const loadComments = useCallback(async () => {
     if (!short) return;
@@ -176,7 +412,7 @@ export default function ShortCommentSheet({
 
     try {
       const response = await ShortService.getComments(short.id, { limit: 50 });
-      setComments(response.data);
+      setComments(buildCommentTree(response.data));
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -266,19 +502,31 @@ export default function ShortCommentSheet({
     if (!body || !short || isSubmitting) return;
 
     setIsSubmitting(true);
+    setError(null);
 
     try {
-      await ShortService.createComment(short.id, {
+      const response = await ShortService.createComment(short.id, {
         body,
         reply_to_id: replyTarget?.id ?? null,
       });
+
+      setComments((currentComments) =>
+        insertCommentIntoTree(currentComments, {
+          ...response.data,
+          replies: response.data.replies ?? [],
+        }),
+      );
+
       setMessage("");
       setReplyTarget(null);
       onCommentAdded?.(short.id);
-      await loadComments();
 
-      // Scroll to top to show new comment
       setTimeout(() => {
+        if (response.data.reply_to_id) {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+          return;
+        }
+
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }, 100);
     } catch (submitError) {
@@ -295,6 +543,62 @@ export default function ShortCommentSheet({
   const handleReply = (comment: ShortComment) => {
     setReplyTarget(comment);
     inputRef.current?.focus();
+  };
+
+  const handleToggleCommentLike = async (comment: ShortComment) => {
+    try {
+      const response = await ShortService.toggleCommentLike(comment.id);
+      setComments((currentComments) =>
+        updateCommentInTree(currentComments, comment.id, (currentComment) => ({
+          ...currentComment,
+          likes_count: response.data.likes_count,
+          liked_by_me: response.data.liked,
+        })),
+      );
+    } catch (likeError) {
+      setError(
+        likeError instanceof Error
+          ? likeError.message
+          : "Failed to update comment like.",
+      );
+    }
+  };
+
+  const handleTogglePin = async (comment: ShortComment) => {
+    try {
+      setError(null);
+      const response = await ShortService.updateComment(comment.id, {
+        is_pinned: !comment.is_pinned,
+      });
+
+      setComments((currentComments) =>
+        updateCommentInTree(currentComments, comment.id, (currentComment) => ({
+          ...currentComment,
+          ...response.data,
+          replies: currentComment.replies ?? response.data.replies ?? [],
+        })),
+      );
+    } catch (pinError) {
+      setError(
+        pinError instanceof Error
+          ? pinError.message
+          : "Failed to update pinned comment.",
+      );
+    }
+  };
+
+  const handleOpenCommentMenu = (comment: ShortComment) => {
+    if (!canPinComments) return;
+
+    const actions: AlertButton[] = [
+      {
+        text: comment.is_pinned ? "Unpin comment" : "Pin comment",
+        onPress: () => void handleTogglePin(comment),
+      },
+      { text: "Cancel", style: "cancel" },
+    ];
+
+    Alert.alert("Comment actions", "Choose an action.", actions);
   };
 
   if (!isMounted || !short) return null;
@@ -338,10 +642,6 @@ export default function ShortCommentSheet({
           <View className="flex-row items-center justify-between px-5 pb-4">
             <View className="flex-1">
               <Text className="text-xl font-bold text-white">Comments</Text>
-              <Text className="text-xs text-white/50 mt-0.5">
-                {short.comments_count ?? comments.length}{" "}
-                {short.comments_count === 1 ? "comment" : "comments"}
-              </Text>
             </View>
 
             <TouchableOpacity
@@ -405,6 +705,9 @@ export default function ShortCommentSheet({
                 key={comment.id}
                 comment={comment}
                 onReply={handleReply}
+                onToggleLike={handleToggleCommentLike}
+                onOpenMenu={handleOpenCommentMenu}
+                canManageComment={canPinComments}
               />
             ))}
 

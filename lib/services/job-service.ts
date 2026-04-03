@@ -60,7 +60,7 @@ export interface JobListParams {
   job_type?: "government" | "public" | "private";
   qualification_id?: number;
   is_active?: boolean;
-  sort_by?: string;
+  sort_by?: "created_at" | "updated_at" | "title" | "job_type" | "is_active";
   sort_dir?: "asc" | "desc";
 }
 

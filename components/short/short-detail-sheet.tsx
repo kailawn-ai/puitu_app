@@ -1,7 +1,16 @@
-import { X } from "lucide-react-native";
+import {
+  X,
+  Heart,
+  MessageCircle,
+  Share2,
+  User,
+  Calendar,
+  MoreHorizontal,
+} from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
   Modal,
   Pressable,
@@ -9,7 +18,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface ShortDetailSheetProps {
   visible: boolean;
@@ -20,6 +33,8 @@ interface ShortDetailSheetProps {
   likesCount: number;
   commentsCount: number;
   sharesCount: number;
+  createdAt?: string;
+  category?: string;
 }
 
 export default function ShortDetailSheet({
@@ -31,43 +46,67 @@ export default function ShortDetailSheet({
   likesCount,
   commentsCount,
   sharesCount,
+  createdAt,
+  category = "Content",
 }: ShortDetailSheetProps) {
   const [isMounted, setIsMounted] = useState(visible);
-  const sheetTranslateY = useRef(new Animated.Value(520)).current;
+  const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       setIsMounted(true);
 
-      Animated.timing(sheetTranslateY, {
-        toValue: 0,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(sheetTranslateY, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       return;
     }
 
     if (!isMounted) return;
 
-    Animated.timing(sheetTranslateY, {
-      toValue: 520,
-      duration: 220,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(sheetTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 280,
+        easing: Easing.bezier(0.4, 0, 0.2, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setIsMounted(false);
     });
-  }, [visible, isMounted, sheetTranslateY]);
+  }, [visible, isMounted, sheetTranslateY, backdropOpacity]);
 
   const requestClose = () => {
-    Animated.timing(sheetTranslateY, {
-      toValue: 520,
-      duration: 220,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(sheetTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 280,
+        easing: Easing.bezier(0.4, 0, 0.2, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setIsMounted(false);
       onClose();
     });
@@ -75,85 +114,152 @@ export default function ShortDetailSheet({
 
   if (!isMounted) return null;
 
+  const StatCard = ({ icon: Icon, value, label, color }: any) => (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      className="flex-1 rounded-2xl bg-white/5 backdrop-blur-sm p-4 border border-white/10"
+      style={styles.glassCard}
+    >
+      <View className="flex-row items-center gap-2 mb-2">
+        <Icon size={20} color={color} />
+        <Text className="text-2xl font-bold text-white">
+          {value.toLocaleString()}
+        </Text>
+      </View>
+      <Text className="text-sm font-medium text-white/60">{label}</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <Modal
       transparent
       visible={isMounted}
       animationType="none"
       onRequestClose={requestClose}
+      statusBarTranslucent
     >
       <View className="flex-1 justify-end">
-        <Pressable
-          className="absolute inset-0 bg-black/50"
-          onPress={requestClose}
-        />
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}
+        >
+          <Pressable
+            className="flex-1 bg-black/60 backdrop-blur-sm"
+            onPress={requestClose}
+          />
+        </Animated.View>
 
         <Animated.View
-          style={{ transform: [{ translateY: sheetTranslateY }] }}
-          className="rounded-t-[32px] bg-[#111111] px-5 pb-8 pt-3"
+          style={[
+            {
+              transform: [{ translateY: sheetTranslateY }],
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              backgroundColor: "#0A0A0A",
+              maxHeight: SCREEN_HEIGHT * 0.85,
+            },
+            styles.sheetContainer,
+          ]}
         >
-          <View className="mb-3 items-center">
-            <View className="h-1.5 w-12 rounded-full bg-white/20" />
+          {/* Drag Handle */}
+          <View className="items-center pt-4 pb-2">
+            <View className="w-12 h-1.5 rounded-full bg-white/30" />
           </View>
 
-          <View className="mb-4 flex-row items-start justify-between">
-            <View className="mr-4 flex-1">
-              <Text className="text-xs font-bold uppercase tracking-[1.5px] text-white/55">
-                Short Details
-              </Text>
-              <Text className="mt-2 text-2xl font-extrabold text-white">
-                {title}
-              </Text>
-              <Text className="mt-1 text-sm font-semibold text-white/70">
-                {creatorLabel}
-              </Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 32 }}
+            bounces={false}
+          >
+            {/* Header Section */}
+            <View className="px-5 pt-2 pb-4">
+              <View className="flex-row items-start justify-between mb-4">
+                <View className="flex-1 mr-4">
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <View className="px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30">
+                      <Text className="text-xs font-semibold text-purple-300 tracking-wide">
+                        {category}
+                      </Text>
+                    </View>
+                    {createdAt && (
+                      <View className="flex-row items-center gap-1">
+                        <Calendar size={12} color="#9CA3AF" />
+                        <Text className="text-xs text-white/40">
+                          {createdAt}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text className="text-3xl font-bold text-white leading-tight mb-2">
+                    {title}
+                  </Text>
+
+                  <View className="flex-row items-center gap-2">
+                    <View className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 items-center justify-center">
+                      <User size={16} color="#FFFFFF" />
+                    </View>
+                    <Text className="text-base font-semibold text-white/80">
+                      {creatorLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={requestClose}
+                  className="w-10 h-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm"
+                  style={styles.closeButton}
+                >
+                  <X size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={requestClose}
-              className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
-            >
-              <X size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <Text className="text-xs font-bold uppercase tracking-[1.5px] text-white/55">
-                Description
-              </Text>
-              <Text className="mt-3 text-[16px] leading-7 text-white/80">
-                {description?.trim() || "No description yet."}
-              </Text>
+            {/* Stats Section */}
+            <View className="px-5 mb-6">
+              <View className="flex-row gap-3">
+                <StatCard
+                  icon={Heart}
+                  value={likesCount}
+                  label="Likes"
+                  color="#EF4444"
+                />
+                <StatCard
+                  icon={MessageCircle}
+                  value={commentsCount}
+                  label="Comments"
+                  color="#3B82F6"
+                />
+                <StatCard
+                  icon={Share2}
+                  value={sharesCount}
+                  label="Shares"
+                  color="#10B981"
+                />
+              </View>
             </View>
 
-            <View className="mt-4 flex-row gap-3">
-              <View className="flex-1 rounded-[22px] border border-white/10 bg-[#1A1A1A] p-4">
-                <Text className="text-2xl font-extrabold text-white">
-                  {likesCount.toLocaleString()}
+            {/* Description Section */}
+            <View className="px-5">
+              <View className="rounded-2xl bg-gradient-to-br from-white/5 to-white/0 p-5 border border-white/10">
+                <Text className="text-xs font-semibold uppercase tracking-wider text-purple-300 mb-3">
+                  Description
                 </Text>
-                <Text className="mt-1 text-sm font-medium text-white/60">
-                  Likes
+                <Text className="text-base leading-6 text-white/80">
+                  {description?.trim() ||
+                    "No description available for this short."}
                 </Text>
-              </View>
 
-              <View className="flex-1 rounded-[22px] border border-white/10 bg-[#1A1A1A] p-4">
-                <Text className="text-2xl font-extrabold text-white">
-                  {commentsCount.toLocaleString()}
-                </Text>
-                <Text className="mt-1 text-sm font-medium text-white/60">
-                  Comments
-                </Text>
-              </View>
-
-              <View className="flex-1 rounded-[22px] border border-white/10 bg-[#1A1A1A] p-4">
-                <Text className="text-2xl font-extrabold text-white">
-                  {sharesCount.toLocaleString()}
-                </Text>
-                <Text className="mt-1 text-sm font-medium text-white/60">
-                  Shares
-                </Text>
+                {/* Decorative gradient line */}
+                <LinearGradient
+                  colors={[
+                    "rgba(139, 92, 246, 0.2)",
+                    "rgba(236, 72, 153, 0.2)",
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientLine}
+                />
               </View>
             </View>
           </ScrollView>
@@ -162,3 +268,37 @@ export default function ShortDetailSheet({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  sheetContainer: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  glassCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backdropFilter: "blur(10px)",
+  },
+  closeButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionButton: {
+    overflow: "hidden",
+  },
+  gradientLine: {
+    height: 2,
+    width: 60,
+    borderRadius: 2,
+    marginTop: 16,
+  },
+});

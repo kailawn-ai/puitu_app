@@ -114,11 +114,11 @@ export default function OldCardUI({
                 </View>
 
                 <View className="flex-row items-center justify-between mt-2">
-                  {detail?.is_premium && (
+                  {detail?.is_free_preview && (
                     <View className="flex-row items-center bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
                       <ShieldCheck size={10} color="#B45309" />
                       <Text className="ml-1 text-amber-700 dark:text-amber-300 text-xs font-medium">
-                        Premium
+                        Free Preview
                       </Text>
                     </View>
                   )}
@@ -182,11 +182,11 @@ export default function OldCardUI({
                 </Text>
               </View>
 
-              {detail?.is_premium && (
+              {detail?.is_free_preview && (
                 <View className="bg-amber-500/90 backdrop-blur-lg px-3 py-1.5 rounded-full flex-row items-center">
                   <ShieldCheck size={14} color="white" />
                   <Text className="ml-1 text-white font-semibold text-sm">
-                    Premium
+                    Free Preview
                   </Text>
                 </View>
               )}
@@ -275,16 +275,16 @@ export default function OldCardUI({
             )}
 
             <View className="absolute top-3 right-3">
-              {detail?.is_premium ? (
+              {detail?.is_free_preview ? (
                 <View className="bg-amber-500 px-3 py-1.5 rounded-full flex-row items-center shadow-lg">
                   <ShieldCheck size={14} color="white" />
                   <Text className="ml-1 text-white text-xs font-bold">
-                    Premium
+                    Free Preview
                   </Text>
                 </View>
               ) : (
-                <View className="bg-emerald-500 px-3 py-1.5 rounded-full shadow-lg">
-                  <Text className="text-white text-xs font-bold">Free</Text>
+                <View className="bg-slate-900 px-3 py-1.5 rounded-full shadow-lg dark:bg-zinc-700">
+                  <Text className="text-white text-xs font-bold">Premium</Text>
                 </View>
               )}
             </View>

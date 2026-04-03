@@ -81,6 +81,7 @@ export default function NotificationCard({
   };
 
   const closeActions = () => {
+    dragDistance.current = 0;
     animateTo(0);
   };
 
@@ -173,14 +174,12 @@ export default function NotificationCard({
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={() => {
-            if (
-              Math.abs(dragDistance.current) > 8 ||
-              currentOffset.current !== 0
-            ) {
+            if (Math.abs(currentOffset.current) > 1) {
               closeActions();
               return;
             }
 
+            dragDistance.current = 0;
             onPress?.(item);
           }}
           className={`rounded-[22px] px-4 py-3 border ${

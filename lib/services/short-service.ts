@@ -39,6 +39,24 @@ export interface ShortVideo {
   user?: ShortUserLite | null;
 }
 
+export interface ManagementShortVideo {
+  id: number;
+  user_id: string;
+  title: string;
+  thumbnail_url?: string | null;
+  status: "draft" | "published" | "archived";
+  visibility: "public" | "private" | "unlisted";
+  is_active: boolean;
+  allow_comments: boolean;
+  views_count?: number;
+  likes_count?: number;
+  comments_count?: number;
+  shares_count?: number;
+  created_at?: string;
+  published_at?: string | null;
+  user?: ShortUserLite | null;
+}
+
 export interface ShortCursorMeta {
   per_page: number;
   count: number;
@@ -47,8 +65,22 @@ export interface ShortCursorMeta {
   pagination_type: "cursor";
 }
 
+export interface ShortPageMeta {
+  current_page: number;
+  per_page: number;
+  total: number;
+  last_page: number;
+  has_more: boolean;
+}
+
 export interface ShortInteractionState {
   short_id: number;
+  liked: boolean;
+  likes_count: number;
+}
+
+export interface ShortCommentInteractionState {
+  comment_id: number;
   liked: boolean;
   likes_count: number;
 }
@@ -72,7 +104,7 @@ export interface ShortApiEnvelope<T> {
   status: "success" | "error";
   message: string;
   data: T;
-  meta?: ShortCursorMeta;
+  meta?: ShortCursorMeta | Record<string, unknown>;
   error?: string;
 }
 
@@ -120,12 +152,51 @@ export interface ShortComment {
   created_at?: string;
   updated_at?: string;
   user?: ShortUserLite | null;
+  liked_by_me?: boolean;
   reply_to?: ShortComment | null;
   replies?: ShortComment[];
 }
 
 export interface ListShortCommentsParams {
   limit?: number;
+}
+
+export interface ListManagementShortsParams {
+  creator_id?: string;
+  status?: "draft" | "published" | "archived";
+  is_active?: boolean;
+  limit?: number;
+}
+
+export interface ManagementShortLike {
+  id: number;
+  short_video_id: number;
+  user_id: string;
+  created_at?: string;
+  user?: ShortUserLite | null;
+}
+
+export interface ShowManagementParams {
+  likes_page?: number;
+  likes_per_page?: number;
+  comments_page?: number;
+  comments_per_page?: number;
+}
+
+export interface ShortShowManagementData {
+  likes: {
+    items: ManagementShortLike[];
+    meta: ShortPageMeta;
+  };
+  comments: {
+    items: ShortComment[];
+    meta: ShortPageMeta;
+  };
+}
+
+export interface ShortWithManagementPayload {
+  data: ShortVideo;
+  management: ShortShowManagementData;
 }
 
 export interface CreateShortCommentPayload {
@@ -189,6 +260,45 @@ export const ShortService = {
       data: res.data,
       message: res.message,
       success: res.success,
+    });
+  },
+
+  async getByIdWithManagement(
+    shortId: number | string,
+    params?: ShowManagementParams,
+  ): Promise<ShortApiEnvelope<ShortWithManagementPayload>> {
+    const query = buildQueryString(params);
+    const res = await apiClient.get<ShortVideo>(`/shorts/${shortId}${query}`);
+    const raw = (res as { raw?: any }).raw;
+
+    const normalizedData = raw?.data ?? res.data;
+    const normalizedManagement = raw?.management ?? raw?.data?.management ?? {
+      likes: { items: [], meta: { current_page: 1, per_page: 0, total: 0, last_page: 1, has_more: false } },
+      comments: { items: [], meta: { current_page: 1, per_page: 0, total: 0, last_page: 1, has_more: false } },
+    };
+
+    return this.toEnvelope({
+      data: {
+        data: normalizedData,
+        management: normalizedManagement,
+      },
+      message: res.message,
+      success: res.success,
+    });
+  },
+
+  async getManagementMinimalList(
+    params?: ListManagementShortsParams,
+  ): Promise<ShortApiEnvelope<ManagementShortVideo[]>> {
+    const query = buildQueryString(params);
+    const res = await apiClient.get<ManagementShortVideo[]>(
+      `/shorts/management/minimal${query}`,
+    );
+    return this.toEnvelope({
+      data: res.data,
+      message: res.message,
+      success: res.success,
+      meta: res.meta,
     });
   },
 
@@ -339,6 +449,32 @@ export const ShortService = {
     commentId: number | string,
   ): Promise<ShortApiEnvelope<null>> {
     const res = await apiClient.delete<null>(`/short-comments/${commentId}`);
+    return this.toEnvelope({
+      data: res.data,
+      message: res.message,
+      success: res.success,
+    });
+  },
+
+  async getCommentLikeStatus(
+    commentId: number | string,
+  ): Promise<ShortApiEnvelope<ShortCommentInteractionState>> {
+    const res = await apiClient.get<ShortCommentInteractionState>(
+      `/short-comments/${commentId}/like-status`,
+    );
+    return this.toEnvelope({
+      data: res.data,
+      message: res.message,
+      success: res.success,
+    });
+  },
+
+  async toggleCommentLike(
+    commentId: number | string,
+  ): Promise<ShortApiEnvelope<ShortCommentInteractionState>> {
+    const res = await apiClient.post<ShortCommentInteractionState>(
+      `/short-comments/${commentId}/like`,
+    );
     return this.toEnvelope({
       data: res.data,
       message: res.message,

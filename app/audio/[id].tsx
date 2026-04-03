@@ -2,14 +2,15 @@ import AudioDetailUI from "@/components/audio/audio-detail-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
+import { useAudioPlayerStore } from "@/store/audio-player-store";
 import { extractDeniedProductId } from "@/lib/utils/product-access";
-import AudioService, { type CourseAudio } from "@/lib/services/audio-service";
+import { AudioService, type CourseAudio } from "@/lib/services/audio-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useState } from "react";
-import { BackHandler, Linking, ScrollView, Text, View } from "react-native";
+import { BackHandler, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const LOADER_ANIMATION = require("../../assets/icons/loader.json");
@@ -32,6 +33,18 @@ const AudioDetailScreen = () => {
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
   const [lockedProductId, setLockedProductId] = useState<string | undefined>();
+  const { setCurrentAudio, currentAudio, routeParams, closePlayer } =
+    useAudioPlayerStore();
+
+  const isCurrentAudioMatch =
+    !!currentAudio &&
+    String(currentAudio.id) === String(id) &&
+    (routeParams?.courseId ?? undefined) ===
+      (courseId ? String(courseId) : undefined) &&
+    (routeParams?.modelType ?? undefined) ===
+      (modelType ? String(modelType) : undefined) &&
+    (routeParams?.modelId ?? undefined) ===
+      (modelId ? String(modelId) : undefined);
 
   const fetchAudio = useCallback(async () => {
     if (!id || !courseId) {
@@ -48,6 +61,11 @@ const AudioDetailScreen = () => {
       setErrorSheetVisible(false);
       setShowBuyAction(false);
       setLockedProductId(undefined);
+      setAudio(null);
+
+      if (!isCurrentAudioMatch) {
+        closePlayer();
+      }
 
       const res = await AudioService.getById(
         courseId,
@@ -56,10 +74,18 @@ const AudioDetailScreen = () => {
         modelId ?? courseId,
       );
       setAudio(res as unknown as CourseAudio);
+      setCurrentAudio(res as unknown as CourseAudio, {
+        id: String(id),
+        courseId: courseId ? String(courseId) : undefined,
+        modelType: modelType ? String(modelType) : undefined,
+        modelId: modelId ? String(modelId) : undefined,
+      });
     } catch (err: any) {
       const errorCode = String(err?.data?.code ?? "");
       const deniedProductId = extractDeniedProductId(err?.data);
       const canBuy = errorCode === "666" || errorCode === "667";
+      closePlayer();
+      setAudio(null);
 
       const title = err?.data?.head;
       const message = err?.data?.message ?? "Failed to load audio";
@@ -71,11 +97,27 @@ const AudioDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, courseId, modelType, modelId]);
+  }, [
+    id,
+    courseId,
+    modelType,
+    modelId,
+    setCurrentAudio,
+    closePlayer,
+    isCurrentAudioMatch,
+  ]);
 
   useEffect(() => {
+    if (isCurrentAudioMatch && currentAudio) {
+      setAudio(currentAudio);
+      setLoading(false);
+      setError(null);
+      setErrorSheetVisible(false);
+      return;
+    }
+
     fetchAudio();
-  }, [fetchAudio]);
+  }, [currentAudio, fetchAudio, isCurrentAudioMatch]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -89,19 +131,13 @@ const AudioDetailScreen = () => {
     return () => backHandler.remove();
   }, [router]);
 
-  const handlePlayback = async (url: string) => {
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      await Linking.openURL(url);
-    }
-  };
-
   const handleBuy = () => {
     router.push({
       pathname: "/payment",
       params: {
-        modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-audio",
-        modelId: String(modelId ?? id),
+        courseId: courseId ? String(courseId) : undefined,
+        modelType: "course-audio" as ResolveProductParams["model_type"],
+        modelId: String(id),
         productId: lockedProductId,
         title: "Audio Access",
         returnTo: `/audio/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
@@ -140,34 +176,32 @@ const AudioDetailScreen = () => {
   return (
     <LinearGradient
       colors={
-        colorScheme === "dark" ? ["#101014", "#171717"] : ["#F8FAFC", "#E2E8F0"]
-      }
+        colorScheme === "dark"
+          ? ["#09090b", "#171717"] // Using your secondary-900 and secondary-800
+          : ["#F8FAFC", "#E2E8F0"]
+      } // Light mode gradient
       locations={[0, 1]}
       start={{ x: 0.5, y: 1 }}
       end={{ x: 0.5, y: 0 }}
       style={{ flex: 1 }}
     >
       <View className="flex-1">
-        <ScrollView
-          contentContainerStyle={{
-            paddingTop: insets.top + 4,
-            paddingBottom: 20,
-          }}
-        >
-          <View className="px-3 mb-2">
-            <BackButton onPress={() => router.back()} />
-          </View>
-
-          {audio ? (
-            <AudioDetailUI audio={audio} onOpenPlayback={handlePlayback} />
+        <View className="px-3 mb-2 absolute z-10 top-12">
+          <BackButton onPress={() => router.back()} />
+        </View>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          {audio || currentAudio ? (
+            <AudioDetailUI audio={audio ?? currentAudio!} />
           ) : (
-            <View className="mx-4 rounded-2xl p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <Text className="text-zinc-900 dark:text-zinc-100 text-lg font-semibold text-center">
-                Unable to load audio
-              </Text>
-              <Text className="mt-2 text-zinc-600 dark:text-zinc-300 text-center">
-                Please retry or go back.
-              </Text>
+            <View className="flex-1 items-center justify-center">
+              <View className="rounded-2xl p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-zinc-900 dark:text-zinc-100 text-lg font-semibold text-center">
+                  Unable to load audio
+                </Text>
+                <Text className="mt-2 text-zinc-600 dark:text-zinc-300 text-center">
+                  Please retry or go back.
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>

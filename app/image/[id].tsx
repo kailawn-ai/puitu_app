@@ -99,8 +99,9 @@ const ImageDetailScreen = () => {
     router.push({
       pathname: "/payment",
       params: {
-        modelType: (modelType as ResolveProductParams["model_type"]) ?? "course-image",
-        modelId: String(modelId ?? id),
+        courseId: courseId ? String(courseId) : undefined,
+        modelType: "course-image" as ResolveProductParams["model_type"],
+        modelId: String(id),
         productId: lockedProductId,
         title: "Image Access",
         returnTo: `/image/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,

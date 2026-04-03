@@ -1,6 +1,7 @@
 import { useIsFocused } from "@react-navigation/native";
 import { useEvent } from "expo";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useRouter } from "expo-router";
 import ShortActionRail from "@/components/short/short-action-rail";
 import ShortCommentSheet from "@/components/short/short-comment-sheet";
 import ShortQuickMenu from "@/components/short/short-quick-menu";
@@ -61,6 +62,7 @@ function ShortCard({
   onOpenComments,
   onShareShort,
   onCreateShort,
+  onMyShorts,
   likeLoading,
   shareLoading,
   saveLoading,
@@ -77,6 +79,7 @@ function ShortCard({
   onOpenComments: () => void;
   onShareShort: () => void;
   onCreateShort: () => void;
+  onMyShorts: () => void;
   likeLoading?: boolean;
   shareLoading?: boolean;
   saveLoading?: boolean;
@@ -180,23 +183,24 @@ function ShortCard({
             commentsCount={item.comments_count ?? 0}
             sharesCount={item.shares_count ?? 0}
             onCreateShort={onCreateShort}
+            onMyShorts={onMyShorts}
           />
         </View>
 
         <View className="flex-row items-end">
-          <View className="mr-4 flex-1 p-2">
+          <View className="mr-4 flex-1 p-1">
             <View className="flex-row items-center">
               <LinearGradient
                 colors={["#FF6B6B", "#FF8E53"]}
                 style={styles.avatarGradient}
               >
-                <Text className="text-sm font-bold text-white">
+                <Text className="text-sm text-white">
                   {getCreatorInitials(item)}
                 </Text>
               </LinearGradient>
 
               <View className="ml-2 flex-row items-center">
-                <Text className="text-base font-bold text-white">
+                <Text className="text-xs text-white">
                   {getCreatorLabel(item)}
                 </Text>
 
@@ -215,7 +219,7 @@ function ShortCard({
               </View>
             </View>
 
-            <Text className="mt-2 text-lg font-bold leading-7 text-white">
+            <Text className="mt-2 text-sm font-bold leading-7 text-white">
               {item.title}
             </Text>
           </View>
@@ -241,6 +245,7 @@ function ShortCard({
 }
 
 export default function ShortScreen() {
+  const router = useRouter();
   const { showError, showInfo, showSuccess } = useAlert();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -494,11 +499,12 @@ export default function ShortScreen() {
   );
 
   const handleCreateShort = useCallback(() => {
-    Alert.alert(
-      "Create short",
-      "We can connect this to the creator upload flow next.",
-    );
-  }, []);
+    router.push("/short/create");
+  }, [router]);
+
+  const handleMyShorts = useCallback(() => {
+    router.push("/short/my");
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -547,6 +553,7 @@ export default function ShortScreen() {
             onOpenComments={() => handleOpenComments(item)}
             onShareShort={() => handleShareShort(item)}
             onCreateShort={handleCreateShort}
+            onMyShorts={handleMyShorts}
             likeLoading={likeLoadingId === item.id}
             shareLoading={shareLoadingId === item.id}
             saveLoading={saveLoadingId === item.id}
@@ -641,8 +648,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.3)",
   },
   avatarGradient: {
-    width: 40,
-    height: 40,
+    width: 35,
+    height: 35,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",

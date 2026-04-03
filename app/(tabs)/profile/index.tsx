@@ -1,9 +1,10 @@
 // app/(tabs)/profile.tsx
-import RequestCreatorCard from "@/components/creator/request-creator-card";
+import { RequestCreatorCard } from "@/components/creator/request-creator-card";
 import {
   ProfileResponseService,
   type ProfileResponseData,
 } from "@/lib/services/profile-response-service";
+import { updateStoredAuthUserPoints } from "@/lib/utils/auth-user-store";
 import { useProfileResponseStore } from "@/store/profile-response-store";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
@@ -12,19 +13,13 @@ import {
   BookOpen,
   ChevronRight,
   Clock,
-  CreditCard,
   Download,
-  Globe,
   GraduationCap,
   Heart,
   HelpCircle,
-  Lock,
-  Moon,
   Settings,
-  Shield,
   Star,
   User,
-  Users,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React from "react";
@@ -66,6 +61,7 @@ const ProfileScreen = () => {
     const response = await ProfileResponseService.getProfileResponse();
     setProfileResponse(response);
     setProfileResponseStore(response);
+    await updateStoredAuthUserPoints(response?.points?.available_points ?? 0);
   }, [setProfileResponseStore]);
 
   React.useEffect(() => {
@@ -137,13 +133,6 @@ const ProfileScreen = () => {
           color: "#F59E0B",
           hasSwitch: true,
           value: true,
-        },
-        {
-          icon: Moon,
-          label: "Dark Mode",
-          color: "#6B7280",
-          hasSwitch: true,
-          value: colorScheme === "dark",
         },
       ],
     },

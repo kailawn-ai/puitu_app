@@ -38,6 +38,7 @@ export interface CourseAudio {
   title: string;
   slug: string;
   description?: string | null;
+  thumbnail_url?: string | null;
   playback_url: string;
   duration_seconds?: number | null;
   size_bytes?: number | null;
@@ -62,6 +63,7 @@ export interface CreateAudioPayload {
   title: string;
   slug?: string;
   description?: string | null;
+  thumbnail_url?: string | null;
   playback_url: string;
   duration_seconds?: number | null;
   size_bytes?: number | null;
@@ -77,6 +79,7 @@ export interface UpdateAudioPayload {
   title?: string;
   slug?: string;
   description?: string | null;
+  thumbnail_url?: string | null;
   playback_url?: string;
   duration_seconds?: number | null;
   size_bytes?: number | null;

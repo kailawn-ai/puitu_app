@@ -1,20 +1,51 @@
-import { Audio } from "expo-av";
+import Sound from "react-native-sound";
+import { Asset } from "expo-asset";
 
 export type SoundType = "click" | "swipe" | "success" | "error";
 
+const resolveSoundPath = async (source: number) => {
+  const asset = Asset.fromModule(source);
+
+  if (!asset.localUri) {
+    await asset.downloadAsync();
+  }
+
+  const path = asset.localUri ?? asset.uri;
+
+  if (!path) {
+    throw new Error("Unable to resolve bundled sound asset path.");
+  }
+
+  return path;
+};
+
 class SoundService {
-  private sounds: Map<SoundType, Audio.Sound> = new Map();
+  private sounds: Map<SoundType, Sound> = new Map();
   private isEnabled: boolean = true;
   private lastPlayed: Map<SoundType, number> = new Map();
   private readonly debounceTime: number = 300; // ms
+  private loadPromise: Promise<void> | null = null;
 
   constructor() {
-    this.loadSounds();
+    Sound.setCategory("Playback", true);
+    void this.loadSounds();
   }
 
   private async loadSounds() {
+    if (this.loadPromise) {
+      return this.loadPromise;
+    }
+
+    this.loadPromise = this.loadSoundsInternal();
     try {
-      // Load all sound files
+      await this.loadPromise;
+    } finally {
+      this.loadPromise = null;
+    }
+  }
+
+  private async loadSoundsInternal() {
+    try {
       const soundConfigs: Record<SoundType, any> = {
         click: require("../../assets/sounds/click.mp3"),
         swipe: require("../../assets/sounds/swipe.mp3"),
@@ -23,11 +54,39 @@ class SoundService {
       };
 
       for (const [type, source] of Object.entries(soundConfigs)) {
-        const { sound } = await Audio.Sound.createAsync(source, {
-          shouldPlay: false,
-          volume: type === "swipe" ? 0.3 : 0.5, // Lower volume for swipe
+        const soundType = type as SoundType;
+
+        if (this.sounds.has(soundType)) {
+          console.log(`[SoundService] ${soundType} already loaded`);
+          continue;
+        }
+
+        const soundPath = await resolveSoundPath(source);
+        console.log(`[SoundService] Resolved ${soundType}`, {
+          soundPath,
         });
-        this.sounds.set(type as SoundType, sound);
+
+        const sound = await new Promise<Sound>((resolve, reject) => {
+          const player = new Sound(soundPath, "", (error) => {
+            if (error) {
+              console.log(`[SoundService] Failed to load ${soundType}`, {
+                error,
+                soundPath,
+              });
+              reject(error);
+              return;
+            }
+
+            player.setVolume(soundType === "swipe" ? 0.3 : 0.5);
+            console.log(`[SoundService] Loaded ${soundType}`, {
+              duration: player.getDuration(),
+              volume: soundType === "swipe" ? 0.3 : 0.5,
+            });
+            resolve(player);
+          });
+        });
+
+        this.sounds.set(soundType, sound);
       }
     } catch (error) {
       console.log("Error loading sounds:", error);
@@ -39,9 +98,13 @@ class SoundService {
    */
   async play(type: SoundType, debounce: boolean = false): Promise<void> {
     if (!this.isEnabled) return;
+    await this.loadSounds();
 
     const sound = this.sounds.get(type);
-    if (!sound) return;
+    if (!sound) {
+      console.log(`[SoundService] No loaded sound found for ${type}`);
+      return;
+    }
 
     // Debounce check for swipe sounds
     if (debounce) {
@@ -52,9 +115,19 @@ class SoundService {
     }
 
     try {
-      await sound.replayAsync();
+      console.log(`[SoundService] Attempting to play ${type}`);
+      sound.stop(() => {
+        sound.play((success) => {
+          if (!success) {
+            console.log(`[SoundService] Playback failed for ${type}`);
+            return;
+          }
+
+          console.log(`[SoundService] Playback succeeded for ${type}`);
+        });
+      });
     } catch (error) {
-      console.log(`Error playing ${type} sound:`, error);
+      console.log(`[SoundService] Error playing ${type}`, { error });
     }
   }
 
@@ -91,10 +164,13 @@ class SoundService {
    * Clean up sounds (call this when app unmounts)
    */
   async cleanup(): Promise<void> {
-    const unloadPromises = Array.from(this.sounds.values()).map((sound) =>
-      sound.unloadAsync().catch(() => {}),
-    );
-    await Promise.all(unloadPromises);
+    Array.from(this.sounds.values()).forEach((sound) => {
+      try {
+        sound.release();
+      } catch {
+        // Ignore cleanup errors for already-destroyed players.
+      }
+    });
     this.sounds.clear();
   }
 

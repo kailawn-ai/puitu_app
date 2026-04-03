@@ -1,5 +1,6 @@
 import { Quiz, QuizOption, QuizQuestion } from "@/lib/services/home-service";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import React, { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -21,6 +22,7 @@ const sortOptions = (options?: QuizOption[]) => {
 
 export default function QuizQandaUI({ quiz, question }: Props) {
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+  const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
@@ -93,6 +95,13 @@ export default function QuizQandaUI({ quiz, question }: Props) {
             );
           })}
         </View>
+
+        <Pressable
+          className="mt-2 rounded-xl bg-primary px-4 py-3 items-center"
+          onPress={() => router.push(`/quiz/${quiz.id}` as any)}
+        >
+          <Text className="text-white text-sm font-semibold">Submit</Text>
+        </Pressable>
       </LinearGradient>
     </View>
   );

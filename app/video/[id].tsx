@@ -1,4 +1,4 @@
-import { BackButton } from "@/components/ui/back-button";
+import { useVideoPlayerStore } from "@/store/video-player-store";
 import MediaErrorUI from "@/components/ui/media-error-ui";
 import { ResolveProductParams } from "@/lib/services/product-service";
 import { extractDeniedProductId } from "@/lib/utils/product-access";
@@ -6,19 +6,10 @@ import VideoDetailUI from "@/components/video/video-detail-ui";
 import { VideoService, type CourseVideo } from "@/lib/services/video-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
 import LottieView from "lottie-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  BackHandler,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { BackHandler, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const LOADER_ANIMATION = require("../../assets/icons/loader.json");
@@ -41,25 +32,36 @@ const VideoDetailScreen = () => {
   const [errorSheetVisible, setErrorSheetVisible] = useState(false);
   const [showBuyAction, setShowBuyAction] = useState(false);
   const [lockedProductId, setLockedProductId] = useState<string | undefined>();
-  const [playerVisible, setPlayerVisible] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const {
+    player,
+    setCurrentVideo,
+    currentVideo,
+    routeParams,
+    lastLoadedUrl,
+    setLastLoadedUrl,
+    closePlayer,
+  } = useVideoPlayerStore();
 
-  const player = useVideoPlayer(null, (instance) => {
-    instance.loop = false;
-    instance.volume = 1.0;
-  });
+  const isCurrentVideoMatch =
+    !!currentVideo &&
+    String(currentVideo.id) === String(id) &&
+    (routeParams?.courseId ?? undefined) ===
+      (courseId ? String(courseId) : undefined) &&
+    (routeParams?.modelType ?? undefined) ===
+      (modelType ? String(modelType) : undefined) &&
+    (routeParams?.modelId ?? undefined) ===
+      (modelId ? String(modelId) : undefined);
 
   // Track if component is mounted
   const isMounted = useRef(true);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      player.release();
     };
-  }, [player]);
+  }, []);
 
   // Handle video playback errors and status changes
   useEffect(() => {
@@ -90,17 +92,13 @@ const VideoDetailScreen = () => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (playerVisible) {
-          handleClosePlayer();
-          return true;
-        }
         router.back();
         return true;
       },
     );
 
     return () => backHandler.remove();
-  }, [router, playerVisible]);
+  }, [router]);
 
   const fetchVideo = useCallback(async () => {
     let res: any;
@@ -119,6 +117,11 @@ const VideoDetailScreen = () => {
       setShowBuyAction(false);
       setLockedProductId(undefined);
       setPlaybackError(null);
+      setVideo(null);
+
+      if (!isCurrentVideoMatch) {
+        closePlayer();
+      }
 
       res = await VideoService.getById(
         courseId,
@@ -129,6 +132,12 @@ const VideoDetailScreen = () => {
 
       if (isMounted.current) {
         setVideo(res);
+        setCurrentVideo(res, {
+          id: String(id),
+          courseId: courseId ? String(courseId) : undefined,
+          modelType: modelType ? String(modelType) : undefined,
+          modelId: modelId ? String(modelId) : undefined,
+        });
       }
     } catch (err: any) {
       if (!isMounted.current) return;
@@ -138,6 +147,9 @@ const VideoDetailScreen = () => {
       const errorCode = String(err?.data?.code ?? "");
       const deniedProductId = extractDeniedProductId(err?.data);
       const canBuy = errorCode === "666" || errorCode === "667";
+
+      closePlayer();
+      setVideo(null);
 
       setErrorTitle(title);
       setError(message);
@@ -149,11 +161,19 @@ const VideoDetailScreen = () => {
         setLoading(false);
       }
     }
-  }, [id, courseId, modelType, modelId]);
+  }, [id, courseId, modelType, modelId, setCurrentVideo, closePlayer, isCurrentVideoMatch]);
 
   useEffect(() => {
+    if (isCurrentVideoMatch && currentVideo) {
+      setVideo(currentVideo);
+      setLoading(false);
+      setError(null);
+      setErrorSheetVisible(false);
+      return;
+    }
+
     fetchVideo();
-  }, [fetchVideo]);
+  }, [currentVideo, fetchVideo, isCurrentVideoMatch]);
 
   const handlePlayback = useCallback(async () => {
     if (!video?.playback_url) {
@@ -165,20 +185,15 @@ const VideoDetailScreen = () => {
       setIsVideoLoading(true);
       setPlaybackError(null);
 
-      // Only replace if URL changed or player is empty
-      const currentSrc = player.src;
-      if (!currentSrc || currentSrc.uri !== video.playback_url) {
-        await player.replace({ uri: video.playback_url });
+      if (lastLoadedUrl !== video.playback_url) {
+        await player.replaceAsync({ uri: video.playback_url });
+        setLastLoadedUrl(video.playback_url);
       }
 
-      // Small delay to ensure player is ready
-      setTimeout(() => {
-        if (isMounted.current) {
-          player.play();
-          setPlayerVisible(true);
-          setIsVideoLoading(false);
-        }
-      }, 100);
+      if (isMounted.current) {
+        player.play();
+        setIsVideoLoading(false);
+      }
     } catch (err) {
       console.error("Error setting up video:", err);
       if (isMounted.current) {
@@ -186,24 +201,15 @@ const VideoDetailScreen = () => {
         setIsVideoLoading(false);
       }
     }
-  }, [video?.playback_url, player]);
-
-  const handleClosePlayer = useCallback(() => {
-    player.pause();
-    // Optional: Stop and clear source to free memory
-    // player.replace({ uri: '' });
-    setPlayerVisible(false);
-    setIsVideoLoading(false);
-    setPlaybackError(null);
-  }, [player]);
+  }, [lastLoadedUrl, player, setLastLoadedUrl, video?.playback_url]);
 
   const handleBuy = useCallback(() => {
     router.push({
       pathname: "/payment",
       params: {
-        modelType:
-          (modelType as ResolveProductParams["model_type"]) ?? "course-video",
-        modelId: String(modelId ?? id),
+        courseId: courseId ? String(courseId) : undefined,
+        modelType: "course-video" as ResolveProductParams["model_type"],
+        modelId: String(id),
         productId: lockedProductId,
         title: "Video Access",
         returnTo: `/video/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "course"}&modelId=${modelId ?? courseId ?? ""}`,
@@ -215,6 +221,12 @@ const VideoDetailScreen = () => {
     setPlaybackError(null);
     fetchVideo();
   }, [fetchVideo]);
+
+  useEffect(() => {
+    if (!video?.playback_url) return;
+    if (lastLoadedUrl === video.playback_url && player.playing) return;
+    void handlePlayback();
+  }, [handlePlayback, lastLoadedUrl, player.playing, video?.playback_url]);
 
   // Loading state
   if (loading) {
@@ -262,12 +274,14 @@ const VideoDetailScreen = () => {
             paddingBottom: 20,
           }}
         >
-          <View className="px-3 mb-2">
-            <BackButton onPress={() => router.back()} />
-          </View>
-
-          {video ? (
-            <VideoDetailUI video={video} onOpenPlayback={handlePlayback} />
+          {video || currentVideo ? (
+            <VideoDetailUI
+              video={video ?? currentVideo!}
+              player={player}
+              isVideoLoading={isVideoLoading}
+              playbackError={playbackError}
+              onRetryPlayback={handlePlayback}
+            />
           ) : (
             <View className="mx-4 rounded-3xl p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
               {/* Icon */}
@@ -326,83 +340,6 @@ const VideoDetailScreen = () => {
           onBuy={showBuyAction ? handleBuy : undefined}
           buyLabel="Buy this video"
         />
-
-        <Modal
-          visible={playerVisible}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={handleClosePlayer}
-        >
-          <View className="flex-1 bg-black">
-            {/* Header */}
-            <View
-              className="w-full flex-row justify-between items-center"
-              style={{ paddingTop: insets.top + 8, paddingHorizontal: 12 }}
-            >
-              <Pressable
-                onPress={handleClosePlayer}
-                className="rounded-lg bg-white/20 px-4 py-2"
-              >
-                <Text className="text-white font-semibold">Close</Text>
-              </Pressable>
-
-              {isVideoLoading && (
-                <View className="flex-row items-center">
-                  <ActivityIndicator size="small" color="#ffffff" />
-                  <Text className="text-white ml-2">Loading...</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Video Player */}
-            <View className="flex-1 items-center justify-center px-3 pb-6">
-              <View className="w-full" style={{ aspectRatio: 16 / 9 }}>
-                <VideoView
-                  player={player}
-                  nativeControls
-                  allowsFullscreen
-                  allowsPictureInPicture
-                  contentFit="contain"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "#000",
-                    borderRadius: 8,
-                  }}
-                />
-
-                {/* Error overlay */}
-                {playbackError && (
-                  <View className="absolute inset-0 bg-black/80 items-center justify-center">
-                    <Text className="text-white text-center mb-4 px-4">
-                      {playbackError}
-                    </Text>
-                    <Pressable
-                      onPress={handlePlayback}
-                      className="rounded-lg bg-white px-6 py-3"
-                    >
-                      <Text className="text-black font-semibold">Retry</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-
-              {/* Video Info */}
-              {video && (
-                <View className="mt-4 w-full px-2">
-                  <Text className="text-white text-lg font-semibold">
-                    {video.title}
-                  </Text>
-                  {video.description && (
-                    <Text className="text-white/70 text-sm mt-1">
-                      {video.description}
-                    </Text>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
       </View>
     </LinearGradient>
   );

@@ -21,6 +21,7 @@ interface ApiResponse<T = any> {
   message?: string;
   success: boolean;
   meta?: any;
+  raw?: any;
 }
 
 interface ApiError {
@@ -94,12 +95,12 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get("content-type");
-    const data = contentType?.includes("application/json")
+    const payload = contentType?.includes("application/json")
       ? await response.json()
       : await response.text();
 
     if (response.status === 401) {
-      const code = data?.code;
+      const code = payload?.code;
 
       if (
         code === "450" ||
@@ -114,18 +115,19 @@ class ApiClient {
 
     if (!response.ok) {
       throw {
-        message: data?.message || "An error occurred",
+        message: payload?.message || "An error occurred",
         status: response.status,
-        data: data,
+        data: payload,
       } as ApiError;
     }
 
     return {
-      data: data?.data ?? data,
+      data: payload?.data ?? payload,
       status: response.status,
-      message: data?.message,
-      success: data?.status === "success",
-      meta: data?.meta,
+      message: payload?.message,
+      success: payload?.status === "success",
+      meta: payload?.meta,
+      raw: payload,
     };
   }
 

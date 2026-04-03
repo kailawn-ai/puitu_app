@@ -3,6 +3,7 @@ import InstructorDetailSheet from "@/components/course/instructor-detail-sheet";
 import EngagementBar from "@/components/ui/engagement-button";
 import { CourseInteractionService } from "@/lib/services/course-interaction-service";
 import { type Course } from "@/lib/services/course-service";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -20,6 +21,7 @@ interface CourseDetailUIProps {
 }
 
 export default function CourseDetailUI({ course }: CourseDetailUIProps) {
+  const router = useRouter();
   const [likesCount, setLikesCount] = useState(course.likes_count ?? 0);
   const [isLiked, setIsLiked] = useState(course.is_liked ?? false);
   const [isSaved, setIsSaved] = useState(course.is_saved ?? false);
@@ -83,6 +85,21 @@ export default function CourseDetailUI({ course }: CourseDetailUIProps) {
       setUserRating(previousRating);
       console.error("Failed to rate course", error);
     }
+  };
+
+  const handleBuyWholeCourse = (): void => {
+    setDescriptionVisible(false);
+
+    router.push({
+      pathname: "/payment",
+      params: {
+        courseId: String(course.id),
+        modelType: "course",
+        modelId: String(course.id),
+        title: course.title,
+        returnTo: `/course/${course.id}`,
+      },
+    });
   };
 
   return (
@@ -167,6 +184,7 @@ export default function CourseDetailUI({ course }: CourseDetailUIProps) {
         likesCount={likesCount}
         viewsCount={course.views_count ?? 0}
         createdAt={course.created_at}
+        onBuyCourse={handleBuyWholeCourse}
       />
 
       <InstructorDetailSheet

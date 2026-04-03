@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/api-client";
+import { type Course } from "@/lib/services/course-service";
 
 export type InteractionAction = "rate" | "save" | "like";
 
@@ -53,7 +54,36 @@ export interface InteractPayload extends AdminUserPayload {
 
 export interface SavedRatedListParams extends AdminUserPayload {
   per_page?: number;
+  page?: number;
 }
+
+export interface PaginatedList<T> {
+  current_page: number;
+  data: T[];
+  first_page_url?: string;
+  from?: number | null;
+  last_page: number;
+  last_page_url?: string;
+  next_page_url?: string | null;
+  path?: string;
+  per_page: number;
+  prev_page_url?: string | null;
+  to?: number | null;
+  total: number;
+}
+
+export interface SavedCourseRecord {
+  id: number;
+  user_id: string;
+  course_id: number;
+  created_at?: string;
+  updated_at?: string;
+  course?: Course | null;
+}
+
+export type SavedCoursesResponse =
+  | SavedCourseRecord[]
+  | PaginatedList<SavedCourseRecord>;
 
 export const CourseInteractionService = {
   async rateCourse(
@@ -108,11 +138,15 @@ export const CourseInteractionService = {
 
   async getUserSavedCourses(
     params?: SavedRatedListParams,
-  ): Promise<ApiEnvelope<unknown> & { meta?: PaginationMeta }> {
+  ): Promise<ApiEnvelope<SavedCoursesResponse> & { meta?: PaginationMeta }> {
     const query = new URLSearchParams();
 
     if (params?.per_page) {
       query.append("per_page", String(params.per_page));
+    }
+
+    if (params?.page) {
+      query.append("page", String(params.page));
     }
 
     if (params?.user_id) {
@@ -134,6 +168,10 @@ export const CourseInteractionService = {
 
     if (params?.per_page) {
       query.append("per_page", String(params.per_page));
+    }
+
+    if (params?.page) {
+      query.append("page", String(params.page));
     }
 
     if (params?.user_id) {

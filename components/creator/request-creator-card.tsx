@@ -57,7 +57,7 @@ export function RequestCreatorCard({
           className="mt-1 text-2xl font-bold"
           style={{ color: isDark ? "#FFFFFF" : "#111111" }}
         >
-          Become Puitu Tutor, and monitize your profile
+          Become Puitu Tutor, and monitize your channel
         </Text>
 
         <View className="mt-4 flex-row flex-wrap">

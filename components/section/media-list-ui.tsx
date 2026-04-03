@@ -6,14 +6,11 @@ import {
 } from "@/lib/services/section-service";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  Clock3,
-  File,
   FileText,
   Headphones,
   Image as ImageIcon,
   MoreVertical,
   Play,
-  Volume2,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React from "react";
@@ -31,18 +28,6 @@ interface MediaListUIProps {
   emptyText?: string;
   variant?: "grid" | "list";
 }
-
-const formatBytes = (bytes?: number | null) => {
-  if (!bytes || bytes <= 0) return "Unknown size";
-  const units = ["B", "KB", "MB", "GB"];
-  let size = bytes;
-  let idx = 0;
-  while (size >= 1024 && idx < units.length - 1) {
-    size /= 1024;
-    idx += 1;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[idx]}`;
-};
 
 const formatDuration = (seconds?: number | null) => {
   if (!seconds || seconds <= 0) return "Unknown";
@@ -162,9 +147,6 @@ const MediaCard = ({
   const title = (item as { title?: string }).title ?? "Untitled";
   const description = (item as { description?: string }).description ?? "";
   const meta = getMetaLabel(tab, item);
-  const sizeText = formatBytes(
-    (item as { size_bytes?: number | null }).size_bytes,
-  );
 
   const mutedIconColor = isDark ? "#A1A1AA" : "#71717A";
   const bgColor = isDark ? "#18181B" : "#FFFFFF";
@@ -188,6 +170,222 @@ const MediaCard = ({
     }).start();
   };
 
+  if (variant === "list" && tab === "videos") {
+    return (
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Pressable
+          onPress={() => onPress?.(item)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          <View className="overflow-hidden rounded-[12px]">
+            <View
+              className="overflow-hidden rounded-[12px]"
+              style={{
+                backgroundColor: bgColor,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.25 : 0.08,
+                shadowRadius: 10,
+                elevation: 3,
+              }}
+            >
+              <View className="relative h-52 w-full">
+                {hasThumbnail ? (
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    className="h-full w-full"
+                    resizeMode="cover"
+                    onError={() => setImageFailed(true)}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={
+                      isDark
+                        ? ["#0F172A", "#111827", "#1E293B"]
+                        : ["#DBEAFE", "#EFF6FF", "#FFFFFF"]
+                    }
+                    className="h-full w-full items-center justify-center"
+                  >
+                    <View className="h-16 w-16 items-center justify-center rounded-full bg-white/90">
+                      <TypeIcon color="#EF4444" />
+                    </View>
+                  </LinearGradient>
+                )}
+
+                <View className="absolute bottom-3 right-3 rounded-md bg-black/80 px-2 py-1">
+                  <Text className="text-xs font-semibold text-white">
+                    {meta}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row px-3 py-3">
+                <View
+                  className="mr-3 mt-0.5 h-10 w-10 items-center justify-center rounded-full"
+                  style={{ backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }}
+                >
+                  <Play size={18} color={isDark ? "#F9FAFB" : "#111827"} />
+                </View>
+
+                <View className="flex-1">
+                  <View className="flex-row items-start">
+                    <Text
+                      className="flex-1 pr-2 text-[15px] font-semibold"
+                      style={{ color: isDark ? "#FFFFFF" : "#18181B" }}
+                      numberOfLines={2}
+                    >
+                      {title}
+                    </Text>
+
+                    {showMenu && (
+                      <Pressable
+                        onPress={() => onPressMenu?.(item)}
+                        hitSlop={8}
+                        className="rounded-full p-1.5"
+                      >
+                        <MoreVertical size={18} color={mutedIconColor} />
+                      </Pressable>
+                    )}
+                  </View>
+
+                  <Text
+                    className="mt-1 text-xs"
+                    style={{ color: mutedIconColor }}
+                    numberOfLines={2}
+                  >
+                    {description || "Video lesson"}
+                  </Text>
+
+                  <View className="mt-2 flex-row items-center">
+                    <View
+                      className="mr-2 rounded-full px-2.5 py-1"
+                      style={{
+                        backgroundColor: isDark ? "#27272A" : "#F4F4F5",
+                      }}
+                    >
+                      <Text
+                        className="text-[11px] font-semibold"
+                        style={{ color: mutedIconColor }}
+                      >
+                        Video
+                      </Text>
+                    </View>
+                    <Text className="text-xs" style={{ color: mutedIconColor }}>
+                      {meta}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  }
+
+  if (variant === "list" && tab === "audios") {
+    return (
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Pressable
+          onPress={() => onPress?.(item)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          <View
+            className="flex-row items-center rounded-md px-3 py-3"
+            style={{
+              backgroundColor: isDark ? "#121212" : "#FFFFFF",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.24 : 0.08,
+              shadowRadius: 8,
+            }}
+          >
+            <View
+              className="mr-3 h-16 w-16 overflow-hidden rounded-xs"
+              style={{ backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }}
+            >
+              {hasThumbnail ? (
+                <Image
+                  source={{ uri: thumbnailUrl }}
+                  className="h-full w-full"
+                  resizeMode="cover"
+                  onError={() => setImageFailed(true)}
+                />
+              ) : (
+                <LinearGradient
+                  colors={
+                    isDark ? ["#14532D", "#052E16"] : ["#BBF7D0", "#DCFCE7"]
+                  }
+                  className="h-full w-full items-center justify-center"
+                >
+                  <Headphones
+                    size={22}
+                    color={isDark ? "#86EFAC" : "#166534"}
+                  />
+                </LinearGradient>
+              )}
+            </View>
+
+            <View className="flex-1 pr-3">
+              <Text
+                className="text-[15px] font-semibold"
+                style={{ color: isDark ? "#FFFFFF" : "#111827" }}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+
+              <Text
+                className="mt-1 text-xs"
+                style={{ color: mutedIconColor }}
+                numberOfLines={1}
+              >
+                {description || "Audio lesson"}
+              </Text>
+
+              <View className="mt-2 flex-row items-center">
+                <View
+                  className="mr-2 rounded-full px-2.5 py-1"
+                  style={{
+                    backgroundColor: isDark ? "#1DB95422" : "#DCFCE7",
+                  }}
+                >
+                  <Text
+                    className="text-[11px] font-semibold"
+                    style={{ color: isDark ? "#86EFAC" : "#166534" }}
+                  >
+                    Audio
+                  </Text>
+                </View>
+                <Text className="text-xs" style={{ color: mutedIconColor }}>
+                  {meta}
+                </Text>
+              </View>
+            </View>
+
+            <View className="items-center">
+              {showMenu ? (
+                <Pressable
+                  onPress={() => onPressMenu?.(item)}
+                  hitSlop={8}
+                  className="mb-2 rounded-full p-1.5"
+                >
+                  <MoreVertical size={16} color={mutedIconColor} />
+                </Pressable>
+              ) : null}
+
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-[#1DB954]">
+                <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  }
+
   if (variant === "grid") {
     return (
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -203,6 +401,7 @@ const MediaCard = ({
               backgroundColor: bgColor,
               borderWidth: 1,
               borderColor: borderColor,
+              minHeight: 252,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: isDark ? 0.3 : 0.1,
@@ -210,7 +409,7 @@ const MediaCard = ({
               elevation: 3,
             }}
           >
-            <View className="relative h-32">
+            <View className="relative h-52">
               {hasThumbnail ? (
                 <Image
                   source={{ uri: thumbnailUrl }}
@@ -243,21 +442,12 @@ const MediaCard = ({
                 className="text-sm font-semibold mb-1"
                 style={{ color: isDark ? "#FFFFFF" : "#18181B" }}
                 numberOfLines={2}
+                ellipsizeMode="tail"
               >
                 {title}
               </Text>
 
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <File size={12} color={mutedIconColor} />
-                  <Text
-                    className="text-xs ml-1"
-                    style={{ color: mutedIconColor }}
-                  >
-                    {sizeText}
-                  </Text>
-                </View>
-
+              <View className="flex-row items-center justify-end">
                 {showMenu && (
                   <Pressable
                     onPress={() => onPressMenu?.(item)}
@@ -284,50 +474,78 @@ const MediaCard = ({
         onPressOut={handlePressOut}
       >
         <View
-          className="rounded-xl overflow-hidden"
+          className="rounded-lg overflow-hidden"
           style={{
             backgroundColor: bgColor,
+            minHeight: 76,
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: isDark ? 0.3 : 0.1,
             shadowRadius: 8,
           }}
         >
-          <View className="flex-row p-3">
+          <View className="flex-row">
             <View className="relative">
               <View
-                className="w-20 h-20 rounded-lg overflow-hidden"
+                className="w-40 h-24 overflow-hidden relative"
                 style={{ backgroundColor: isDark ? "#27272A" : "#F4F4F5" }}
               >
                 {hasThumbnail ? (
-                  <Image
-                    source={{ uri: thumbnailUrl }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                    onError={() => setImageFailed(true)}
-                  />
+                  <>
+                    <Image
+                      source={{ uri: thumbnailUrl }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                      onError={() => setImageFailed(true)}
+                    />
+                  </>
                 ) : (
-                  <View className="flex-1 items-center justify-center">
-                    <TypeIcon color={typeColor.bg} />
-                  </View>
+                  <LinearGradient
+                    colors={
+                      isDark
+                        ? [typeColor.dark, "#18181B", "#111827"]
+                        : [typeColor.light, "#FFFFFF", "#F8FAFC"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="flex-1 justify-between px-3 py-2"
+                  >
+                    <View
+                      className="h-7 w-7 items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(255,255,255,0.92)",
+                      }}
+                    >
+                      <TypeIcon color={typeColor.bg} />
+                    </View>
+
+                    <View>
+                      <Text
+                        className="text-[10px] font-semibold uppercase tracking-[0.8px]"
+                        style={{ color: isDark ? "#E4E4E7" : "#3F3F46" }}
+                        numberOfLines={1}
+                      >
+                        {tab === "videos"
+                          ? "Video Lesson"
+                          : tab === "documents"
+                            ? "Study Material"
+                            : tab === "audios"
+                              ? "Audio Lesson"
+                              : "Image Resource"}
+                      </Text>
+                    </View>
+                  </LinearGradient>
                 )}
               </View>
-
-              {tab === "audios" && (
-                <View
-                  className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1.5 border-2"
-                  style={{ borderColor: bgColor }}
-                >
-                  <Volume2 size={12} color="white" />
-                </View>
-              )}
             </View>
 
-            <View className="flex-1 ml-3 justify-between">
-              <View>
+            <View className="flex-1 ml-3 pr-3 py-1 justify-center">
+              <View style={{ minHeight: 28, justifyContent: "center" }}>
                 <View className="flex-row items-center justify-between">
                   <Text
-                    className="text-base font-semibold flex-1 mr-2"
+                    className="text-sm font-semibold flex-1 mr-2"
                     style={{ color: isDark ? "#FFFFFF" : "#18181B" }}
                     numberOfLines={1}
                   >
@@ -350,35 +568,14 @@ const MediaCard = ({
 
                 {description ? (
                   <Text
-                    className="text-sm mt-1"
+                    className="text-xs mt-0.5"
                     style={{ color: mutedIconColor }}
                     numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {description}
                   </Text>
                 ) : null}
-              </View>
-
-              <View className="flex-row items-center mt-2">
-                <View className="flex-row items-center mr-3">
-                  <Clock3 size={12} color={mutedIconColor} />
-                  <Text
-                    className="text-xs ml-1"
-                    style={{ color: mutedIconColor }}
-                  >
-                    {meta}
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center">
-                  <File size={12} color={mutedIconColor} />
-                  <Text
-                    className="text-xs ml-1"
-                    style={{ color: mutedIconColor }}
-                  >
-                    {sizeText}
-                  </Text>
-                </View>
               </View>
             </View>
           </View>

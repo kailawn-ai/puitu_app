@@ -1,4 +1,5 @@
-import { Audio } from "expo-av";
+import Sound from "react-native-sound";
+import { Asset } from "expo-asset";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // Define sound types
@@ -12,6 +13,22 @@ const SOUND_FILES = {
   error: require("../assets/sounds/error.mp3"),
 };
 
+const resolveSoundPath = async (source: number) => {
+  const asset = Asset.fromModule(source);
+
+  if (!asset.localUri) {
+    await asset.downloadAsync();
+  }
+
+  const path = asset.localUri ?? asset.uri;
+
+  if (!path) {
+    throw new Error("Unable to resolve bundled sound asset path.");
+  }
+
+  return path;
+};
+
 // Optional: Add haptic feedback mapping
 export type HapticType =
   | "light"
@@ -23,7 +40,7 @@ export type HapticType =
 
 export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
   // Store loaded sounds
-  const sounds = useRef<Map<SoundType, Audio.Sound>>(new Map());
+  const sounds = useRef<Map<SoundType, Sound>>(new Map());
   const [isEnabled, setIsEnabled] = useState(options?.enabled ?? true);
   const [isLoaded, setIsLoaded] = useState(false);
   const lastPlayed = useRef<Map<string, number>>(new Map());
@@ -50,22 +67,39 @@ export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
 
   const loadSounds = async () => {
     try {
-      // Configure audio mode for proper playback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: false,
-        playsInSilentModeIOS: true, // Important for iOS silent mode
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
+      Sound.setCategory("Playback", true);
 
       const entries = Object.entries(SOUND_FILES) as [SoundType, any][];
 
       for (const [type, file] of entries) {
-        const { sound } = await Audio.Sound.createAsync(file, {
-          shouldPlay: false,
-          volume: options?.volume ?? 0.5,
+        if (sounds.current.has(type)) {
+          console.log(`[useSound] ${type} already loaded`);
+          continue;
+        }
+
+        const soundPath = await resolveSoundPath(file);
+        console.log(`[useSound] Resolved ${type}`, { soundPath });
+
+        const sound = await new Promise<Sound>((resolve, reject) => {
+          const player = new Sound(soundPath, "", (error) => {
+            if (error) {
+              console.log(`[useSound] Failed to load ${type}`, {
+                error,
+                soundPath,
+              });
+              reject(error);
+              return;
+            }
+
+            player.setVolume(options?.volume ?? 0.5);
+            console.log(`[useSound] Loaded ${type}`, {
+              duration: player.getDuration(),
+              volume: options?.volume ?? 0.5,
+            });
+            resolve(player);
+          });
         });
+
         sounds.current.set(type, sound);
       }
 
@@ -76,10 +110,13 @@ export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
   };
 
   const unloadSounds = async () => {
-    const unloadPromises = Array.from(sounds.current.values()).map((sound) =>
-      sound.unloadAsync().catch(() => {}),
-    );
-    await Promise.all(unloadPromises);
+    Array.from(sounds.current.values()).forEach((sound) => {
+      try {
+        sound.release();
+      } catch {
+        // Ignore cleanup errors for already-destroyed players.
+      }
+    });
     sounds.current.clear();
   };
 
@@ -87,7 +124,7 @@ export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
     async (type: SoundType, debounceMs: number = 200) => {
       if (!isEnabled) return;
       if (!isLoaded) {
-        console.log(`⚠️ Sounds not loaded yet, can't play ${type}`);
+        console.log(`[useSound] Sounds not loaded yet, can't play ${type}`);
         return;
       }
 
@@ -98,19 +135,25 @@ export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
       lastPlayed.current.set(type, now);
 
       const sound = sounds.current.get(type);
-      if (!sound) return;
+      if (!sound) {
+        console.log(`[useSound] No loaded sound found for ${type}`);
+        return;
+      }
 
       try {
-        // Check if sound is loaded
-        const status = await sound.getStatusAsync();
-        if (!status.isLoaded) {
-          console.log(`⚠️ Sound ${type} not loaded, reloading...`);
-          await sound.loadAsync(SOUND_FILES[type]);
-        }
+        console.log(`[useSound] Attempting to play ${type}`);
+        sound.stop(() => {
+          sound.play((success) => {
+            if (!success) {
+              console.log(`[useSound] Playback failed for ${type}`);
+              return;
+            }
 
-        await sound.replayAsync();
+            console.log(`[useSound] Playback succeeded for ${type}`);
+          });
+        });
       } catch (error) {
-        console.log(`Error playing ${type} sound:`, error);
+        console.log(`[useSound] Error playing ${type}`, { error });
       }
     },
     [isEnabled, isLoaded],
@@ -153,10 +196,13 @@ export const useSound = (options?: { enabled?: boolean; volume?: number }) => {
 
   // Stop all sounds
   const stopAll = useCallback(async () => {
-    const stopPromises = Array.from(sounds.current.values()).map((sound) =>
-      sound.stopAsync().catch(() => {}),
-    );
-    await Promise.all(stopPromises);
+    Array.from(sounds.current.values()).forEach((sound) => {
+      try {
+        sound.stop();
+      } catch {
+        // Ignore stop failures for released sounds.
+      }
+    });
   }, []);
 
   return {

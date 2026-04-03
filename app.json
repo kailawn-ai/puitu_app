@@ -3,7 +3,7 @@
     "name": "Puitu",
     "slug": "Puitu",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/logo/logo_new.png",
     "scheme": "puituapp",
     "userInterfaceStyle": "automatic",
@@ -58,11 +58,23 @@
           "enableBackgroundRemoteNotifications": false
         }
       ],
-      "@react-native-google-signin/google-signin",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
+      "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
+      "./node_modules/@react-native-firebase/app/app.plugin.js",
+      "./node_modules/@react-native-firebase/auth/app.plugin.js",
       "expo-secure-store",
-      "expo-video"
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

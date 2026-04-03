@@ -7,6 +7,7 @@ export const AUTH_USER_STORE_KEYS = {
   AUTH_NAME: "auth_name",
   AUTH_IMAGE: "auth_image",
   AUTH_PROVIDER: "auth_provider",
+  AUTH_POINTS: "auth_points",
 } as const;
 
 export interface StoredAuthUser {
@@ -20,9 +21,19 @@ export interface StoredAuthUser {
   state?: string | null;
   district?: string | null;
   town?: string | null;
+  points?: number;
   is_active?: boolean;
   updated_at?: string;
 }
+
+const toNumberOrNull = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
 
 const mapToStoredUser = (
   user?: Record<string, unknown> | null,
@@ -42,6 +53,8 @@ const mapToStoredUser = (
     state: (user.state as string) ?? null,
     district: (user.district as string) ?? null,
     town: (user.town as string) ?? null,
+    points:
+      toNumberOrNull(user.points) ?? toNumberOrNull(user.available_points) ?? 0,
     is_active:
       typeof user.is_active === "boolean"
         ? user.is_active
@@ -99,6 +112,12 @@ export const saveAuthUserToStore = async (
       ),
     );
   }
+  tasks.push(
+    SecureStore.setItemAsync(
+      AUTH_USER_STORE_KEYS.AUTH_POINTS,
+      String(mapped.points ?? 0),
+    ),
+  );
 
   await Promise.all(tasks);
 };
@@ -108,9 +127,39 @@ export const getStoredAuthUser = async (): Promise<StoredAuthUser | null> => {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as StoredAuthUser;
+    const parsed = JSON.parse(raw) as StoredAuthUser;
+    const pointsRaw = await SecureStore.getItemAsync(
+      AUTH_USER_STORE_KEYS.AUTH_POINTS,
+    );
+    const points = toNumberOrNull(pointsRaw);
+
+    if (typeof parsed.points === "number") return parsed;
+    if (typeof points === "number") return { ...parsed, points };
+    return parsed;
   } catch {
     return null;
   }
 };
 
+export const updateStoredAuthUserPoints = async (points: number) => {
+  const current = await getStoredAuthUser();
+  if (!current) return;
+
+  const nextPoints = Math.max(0, Math.floor(points));
+  const nextUser: StoredAuthUser = {
+    ...current,
+    points: nextPoints,
+    updated_at: new Date().toISOString(),
+  };
+
+  await Promise.all([
+    SecureStore.setItemAsync(
+      AUTH_USER_STORE_KEYS.AUTH_USER_JSON,
+      JSON.stringify(nextUser),
+    ),
+    SecureStore.setItemAsync(
+      AUTH_USER_STORE_KEYS.AUTH_POINTS,
+      String(nextPoints),
+    ),
+  ]);
+};

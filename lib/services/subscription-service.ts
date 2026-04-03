@@ -22,6 +22,69 @@ export interface PremiumResponseData {
   pointsSummary: PremiumPointsSummary | null;
 }
 
+export interface CourseProductOptionPurchase {
+  id: number;
+  product_id: number;
+  payment_method: string;
+  access_start?: string | null;
+  access_end?: string | null;
+  status: string;
+}
+
+export interface CourseProductOptionProduct {
+  id: number;
+  name: string;
+  description?: string | null;
+  price?: string | number | null;
+  discount_price?: string | number | null;
+  final_price?: number | null;
+  allow_points?: boolean;
+  points_price?: number | null;
+  device_increment?: number | null;
+  access_duration_days?: number | null;
+  category?: string | null;
+  is_featured?: boolean;
+}
+
+export interface CourseProductOptionItem {
+  id: number;
+  type: "course" | "section" | "video" | "audio" | "document" | "image";
+  title?: string | null;
+  position: number;
+  is_free_preview: boolean;
+  is_purchased: boolean;
+  product: CourseProductOptionProduct | null;
+  purchase: CourseProductOptionPurchase | null;
+}
+
+export interface CourseProductOptionSection {
+  id: number;
+  title: string;
+  position: number;
+  is_purchased: boolean;
+  has_purchased_content: boolean;
+  product: CourseProductOptionProduct | null;
+  videos: CourseProductOptionItem[];
+  audios: CourseProductOptionItem[];
+  documents: CourseProductOptionItem[];
+  images: CourseProductOptionItem[];
+}
+
+export interface CourseProductOptionsData {
+  course: {
+    id: number;
+    title: string;
+    summary?: string | null;
+    thumbnail_url?: string | null;
+    language?: string | null;
+    level?: string | null;
+    course_product: CourseProductOptionProduct | null;
+    is_purchased: boolean;
+  };
+  sections: CourseProductOptionSection[];
+  pointsSummary: PremiumPointsSummary | null;
+}
+
 export interface PurchaseProductParams {
   product: Product;
   paymentMethod: Extract<OrderPaymentMethod, "razorpay" | "points">;
@@ -35,6 +98,21 @@ export interface PurchaseProductResult {
 interface PremiumDashboardResponse {
   products: Product[];
   purchases: UserPurchaseItem[];
+  points_summary: PremiumPointsSummary;
+}
+
+interface CourseProductOptionsResponse {
+  course: {
+    id: number;
+    title: string;
+    summary?: string | null;
+    thumbnail_url?: string | null;
+    language?: string | null;
+    level?: string | null;
+    course_product: CourseProductOptionProduct | null;
+    is_purchased: boolean;
+  };
+  sections: CourseProductOptionSection[];
   points_summary: PremiumPointsSummary;
 }
 
@@ -60,6 +138,20 @@ export const SubscriptionService = {
 
   async loadDashboard(): Promise<PremiumResponseData> {
     return this.getPremiumResponse();
+  },
+
+  async getCourseProductOptions(
+    courseId: number | string,
+  ): Promise<CourseProductOptionsData> {
+    const res = await apiClient.get<CourseProductOptionsResponse>(
+      `/premium/course-products/${courseId}`,
+    );
+
+    return {
+      course: res.data.course,
+      sections: res.data.sections ?? [],
+      pointsSummary: res.data.points_summary ?? null,
+    };
   },
 
   async purchaseProduct({

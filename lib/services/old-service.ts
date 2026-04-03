@@ -63,7 +63,7 @@ export interface OldQuestionDetail {
   description?: string | null;
   image?: string | null;
   file: string;
-  is_premium: boolean;
+  is_free_preview: boolean;
   is_active: boolean;
 }
 
@@ -103,6 +103,23 @@ export interface ProductInput {
   is_featured?: boolean;
 }
 
+export type OldQuestionSortBy =
+  | "title"
+  | "slug"
+  | "created_at"
+  | "updated_at"
+  | "qualification_name"
+  | "course_name"
+  | "section_name"
+  | "year_name"
+  | "semester_name"
+  | "is_free_preview"
+  | "is_active"
+  | "views"
+  | "downloads"
+  | "popularity"
+  | "recent";
+
 export interface OldQuestionPayload {
   title: string;
   thumbnail_url?: string | null;
@@ -114,7 +131,7 @@ export interface OldQuestionPayload {
   description?: string | null;
   image?: string | null;
   file: string;
-  is_premium?: boolean;
+  is_free_preview?: boolean;
   is_active?: boolean;
   product?: ProductInput;
 }
@@ -125,11 +142,11 @@ export interface OldQuestionListParams {
   year_id?: number;
   semester_id?: number;
   section_id?: number;
-  is_premium?: boolean;
+  is_free_preview?: boolean;
   is_active?: boolean;
   search?: string;
   slug?: string;
-  sort_by?: string;
+  sort_by?: OldQuestionSortBy;
   sort_order?: "asc" | "desc";
   sort_multiple?: string;
   per_page?: number;
@@ -146,8 +163,26 @@ export interface DownloadInfo {
 export interface PremiumAccessInfo {
   success: boolean;
   has_access: boolean;
-  is_premium: boolean;
+  is_free_preview: boolean;
   message?: string;
+}
+
+export interface BrowseQuestionsParams {
+  per_page?: number;
+  page?: number;
+}
+
+export interface BrowseSortOptionsParams {
+  per_page?: number;
+  qualifications_page?: number;
+  years_page?: number;
+  semesters_page?: number;
+}
+
+export interface BrowseSortOptionsData {
+  qualifications: PaginatedResponse<QualificationLite>;
+  years: PaginatedResponse<YearLite>;
+  semesters: PaginatedResponse<SemesterLite>;
 }
 
 const buildQueryString = (params?: Record<string, unknown>): string => {
@@ -181,6 +216,16 @@ export const OldService = {
     const query = buildQueryString(params);
     const res = await apiClient.get<PaginatedResponse<OldQuestion>>(
       `/old-questions/filter${query}`,
+    );
+    return res.data;
+  },
+
+  async getBrowseSortOptions(
+    params?: BrowseSortOptionsParams,
+  ): Promise<BrowseSortOptionsData> {
+    const query = buildQueryString(params);
+    const res = await apiClient.get<BrowseSortOptionsData>(
+      `/old-questions/browse/sort-options${query}`,
     );
     return res.data;
   },
@@ -296,7 +341,7 @@ export const OldService = {
     yearId: number | string,
     semesterId: number | string,
     subjectId: number | string,
-    params?: { per_page?: number; page?: number },
+    params?: BrowseQuestionsParams,
   ): Promise<PaginatedResponse<OldQuestion>> {
     const query = buildQueryString(params);
     const res = await apiClient.get<PaginatedResponse<OldQuestion>>(

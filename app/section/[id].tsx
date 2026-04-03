@@ -3,7 +3,7 @@ import SectionTabs, {
   type SectionMediaTabKey,
 } from "@/components/section/tab-ui";
 import { BackButton } from "@/components/ui/back-button";
-import SectionService, { type Section } from "@/lib/services/section-service";
+import { SectionService, type Section } from "@/lib/services/section-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
@@ -148,13 +148,13 @@ const SectionScreen = () => {
       end={{ x: 0.5, y: 0 }}
       style={{ flex: 1 }}
     >
+      <BackButton
+        onPress={() => router.back()}
+        className="absolute top-12 left-4 z-10"
+      />
       <View className="flex-1">
         <View className="pt-2 pb-3" style={{ paddingTop: insets.top + 4 }}>
-          <View className="pl-3 flex-row items-center">
-            <BackButton onPress={() => router.back()} />
-          </View>
-
-          <View className="mt-3 px-4">
+          <View className="flex-row mt-3 px-4 justify-center">
             <Text
               className="text-zinc-900 dark:text-zinc-100 text-lg font-semibold"
               numberOfLines={1}
@@ -163,7 +163,7 @@ const SectionScreen = () => {
             </Text>
           </View>
 
-          <View className="mt-4">
+          <View className="mt-8">
             <SectionTabs value={tab} onChange={setTab} />
           </View>
         </View>

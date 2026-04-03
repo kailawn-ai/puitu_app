@@ -1,20 +1,35 @@
 import { OldQuestion } from "@/lib/services/home-service";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import OldQuestionCard from "./old-card-ui";
 
 interface Props {
   questions: OldQuestion[];
   onPressItem?: (question: OldQuestion) => void;
+  onPressSeeAll?: () => void;
 }
 
-export default function OldQuestionsSection({ questions, onPressItem }: Props) {
+export default function OldQuestionsSection({
+  questions,
+  onPressItem,
+  onPressSeeAll,
+}: Props) {
   if (!questions?.length) return null;
 
   return (
     <View className="mb-6">
-      <Text className="font-semibold text-lg text-gray-900 dark:text-white mb-3 px-6">
-        Old Questions
-      </Text>
+      <View className="mb-3 flex-row items-center justify-between px-6">
+        <Text className="font-semibold text-lg text-gray-900 dark:text-white">
+          Old Questions
+        </Text>
+
+        {onPressSeeAll ? (
+          <Pressable onPress={onPressSeeAll}>
+            <Text className="text-sm font-semibold text-primary">
+              See all
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <FlatList
         data={questions}

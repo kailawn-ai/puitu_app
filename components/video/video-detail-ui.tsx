@@ -1,17 +1,15 @@
 import { type CourseVideo } from "@/lib/services/video-service";
-import {
-  CirclePlay,
-  Clock3,
-  Film,
-  Maximize,
-  ShieldCheck,
-} from "lucide-react-native";
+import { VideoView } from "expo-video";
+import { Clock3, Film, Maximize, ShieldCheck } from "lucide-react-native";
 import React from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 
 interface VideoDetailUIProps {
   video: CourseVideo;
-  onOpenPlayback?: () => void;
+  player?: any;
+  isVideoLoading?: boolean;
+  playbackError?: string | null;
+  onRetryPlayback?: () => void;
 }
 
 const formatDuration = (seconds?: number | null) => {
@@ -38,33 +36,62 @@ const formatBytes = (bytes?: number | null) => {
 
 export default function VideoDetailUI({
   video,
-  onOpenPlayback,
+  player,
+  isVideoLoading = false,
+  playbackError,
+  onRetryPlayback,
 }: VideoDetailUIProps) {
   const hasThumb = !!video.thumbnail_url;
   const canPlay = !!video.playback_url;
 
   return (
-    <View className="mx-4 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-      <View className="h-56 bg-zinc-100 dark:bg-zinc-800 items-center justify-center relative">
-        {hasThumb ? (
+    <View className="overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <View
+        className="bg-zinc-100 dark:bg-zinc-800 relative"
+        style={{ aspectRatio: 16 / 9 }}
+      >
+        {canPlay && player ? (
+          <VideoView
+            player={player}
+            nativeControls
+            allowsFullscreen
+            allowsPictureInPicture
+            contentFit="contain"
+            style={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: "#000",
+            }}
+          />
+        ) : hasThumb ? (
           <Image
             source={{ uri: video.thumbnail_url! }}
             className="w-full h-full"
             resizeMode="cover"
           />
         ) : (
-          <Film size={42} color="#9CA3AF" />
+          <View className="flex-1 items-center justify-center">
+            <Film size={42} color="#9CA3AF" />
+          </View>
         )}
 
-        <Pressable
-          disabled={!canPlay}
-          onPress={() => canPlay && onOpenPlayback?.()}
-          className={`absolute w-16 h-16 rounded-full items-center justify-center ${
-            canPlay ? "bg-black/60" : "bg-zinc-500/60"
-          }`}
-        >
-          <CirclePlay size={30} color="#FFFFFF" />
-        </Pressable>
+        {isVideoLoading && (
+          <View className="absolute inset-0 items-center justify-center bg-black/40">
+            <ActivityIndicator size="large" color="#ffffff" />
+          </View>
+        )}
+
+        {playbackError && (
+          <View className="absolute inset-0 items-center justify-center bg-black/80 px-4">
+            <Text className="text-white text-center mb-4">{playbackError}</Text>
+            <Pressable
+              onPress={onRetryPlayback}
+              className="rounded-lg bg-white px-5 py-3"
+            >
+              <Text className="text-black font-semibold">Retry</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <View className="p-4">

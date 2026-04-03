@@ -163,6 +163,7 @@ const OldQuestionDetailScreen = () => {
       <View className="flex-1">
         <ScrollView
           contentContainerStyle={{
+            flexGrow: 1,
             paddingTop: insets.top + 1,
             paddingBottom: 20,
           }}
@@ -170,21 +171,23 @@ const OldQuestionDetailScreen = () => {
           {question ? (
             <OldCardUI question={question} onPressDownload={handleOpenFile} />
           ) : (
-            <View className="mx-4 mt-12 rounded-2xl p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <Text className="text-zinc-900 dark:text-zinc-100 text-lg font-semibold text-center">
-                Unable to load old question
-              </Text>
-              <Text className="mt-2 text-zinc-600 dark:text-zinc-300 text-center">
-                {error ?? "Please retry or go back."}
-              </Text>
-              <Pressable
-                onPress={handleRetry}
-                className="mt-4 rounded-lg bg-zinc-200 dark:bg-zinc-800 px-4 py-2"
-              >
-                <Text className="text-zinc-900 dark:text-zinc-100 text-center font-medium">
-                  Retry
+            <View className="flex-1 items-center justify-center px-4">
+              <View className="w-full rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+                <Text className="text-center text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                  Unable to load old question
                 </Text>
-              </Pressable>
+                <Text className="mt-2 text-center text-zinc-600 dark:text-zinc-300">
+                  {error ?? "Please retry or go back."}
+                </Text>
+                <Pressable
+                  onPress={handleRetry}
+                  className="mt-4 rounded-lg bg-zinc-200 px-4 py-2 dark:bg-zinc-800"
+                >
+                  <Text className="text-center font-medium text-zinc-900 dark:text-zinc-100">
+                    Retry
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </ScrollView>

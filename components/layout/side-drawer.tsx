@@ -1,5 +1,5 @@
 // components/navigation/side-drawer.tsx
-import RequestCreatorCard from "@/components/creator/request-creator-card";
+import { RequestCreatorCard } from "@/components/creator/request-creator-card";
 import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -8,21 +8,16 @@ import {
   Bell,
   ChevronRight,
   Clock,
-  CreditCard,
-  Download,
-  Globe,
-  Heart,
+  Film,
   HelpCircle,
   HelpCircleIcon,
-  Moon,
   Save,
   Settings,
   Shield,
-  Star,
-  Tag,
   UserCog2Icon,
   Users,
   X,
+  Sparkles,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import { useNotifications } from "@/providers/notification-provider";
@@ -47,7 +42,7 @@ interface SideDrawerProps {
 
 export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
   const router = useRouter();
-  const { colorScheme, toggleColorScheme } = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const translateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const { unreadCount } = useNotifications();
@@ -74,21 +69,14 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           icon: Bell,
           label: "Notifications",
           route: "/notifications",
-          color: "#EF4444",
+          color: "#00bd4f",
           badge: unreadCount > 0 ? unreadCount : undefined,
         },
         {
-          icon: Heart,
-          label: "Favorites",
-          route: "/favorites",
-          color: "#EC4899",
-        },
-        {
-          icon: Moon,
-          label: "Dark Mode",
-          action: toggleColorScheme,
-          color: "#6366F1",
-          rightText: isDark ? "On" : "Off",
+          icon: Film,
+          label: "My Shorts",
+          route: "/short/my",
+          color: "#F43F5E",
         },
       ],
     },
@@ -98,7 +86,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
         {
           icon: Save,
           label: "Saved Content",
-          route: "/achievements",
+          route: "/saved-content",
           color: "#F59E0B",
         },
         {
@@ -141,7 +129,6 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           label: "Support",
           route: "/language",
           color: "#3B82F6",
-          rightText: "English",
         },
         {
           icon: UserCog2Icon,
@@ -164,13 +151,14 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
   React.useEffect(() => {
     const loadUser = async () => {
       const stored = await getStoredAuthUser();
-      if (!stored) return;
 
       setUserData((prev) => ({
         ...prev,
-        name: stored.name || prev.name,
-        email: stored.email || prev.email,
-        avatar: stored.profile_image || prev.avatar,
+        name: stored?.name || prev.name,
+        email: stored?.email || prev.email,
+        avatar: stored?.profile_image || prev.avatar,
+        points:
+          typeof stored?.points === "number" ? stored.points : prev.points,
       }));
     };
 
@@ -261,47 +249,53 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           <LinearGradient
             colors={
               isDark
-                ? ["#4A00B3", "#6D28D9", "#7C3AED"]
-                : ["#5B21B6", "#7C3AED", "#9333EA"]
+                ? ["#1E1B2E", "#2D1B4E", "#4C1D95"]
+                : ["#6366F1", "#8B5CF6", "#A855F7"]
             }
-            locations={[0, 0.55, 1]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            className="pt-12 px-6 pb-8"
+            className="pt-12 pb-2"
           >
-            <View className="flex-row justify-between items-center mb-8">
-              <Text className="text-white text-2xl font-bold"></Text>
+            <View className="px-5 flex-row justify-end">
               <TouchableOpacity
                 onPress={onClose}
-                className="w-10 h-10 bg-white/20 rounded-full items-center justify-center active:bg-white/30"
+                className="w-10 h-10 bg-white/20 backdrop-blur-lg rounded-full items-center justify-center active:bg-white/30"
               >
-                <X size={24} color="#FFFFFF" />
+                <X size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
-            <View className="flex-row items-center">
-              <Image
-                source={{ uri: userData.avatar }}
-                className="w-16 h-16 rounded-2xl border-2 border-white/30"
-              />
-              <View className="ml-4 flex-1">
-                <Text className="text-white text-xl font-bold">
-                  {userData.name}
-                </Text>
-                <Text className="text-primary-200 text-sm mt-1">
-                  {userData.email}
-                </Text>
-                <View className="flex-row items-center mt-2">
-                  <View className="bg-amber-500 px-3 py-1 rounded-full">
-                    <Text className="text-white text-xs font-bold">
-                      {userData.membership}
-                    </Text>
-                  </View>
-                  <View className="ml-3 bg-primary-400 px-3 py-1 rounded-full">
-                    <Text className="text-white text-xs">
-                      {userData.points} points
-                    </Text>
-                  </View>
+            <View className="px-5 mt-2">
+              <View className="flex-row items-center">
+                <View className="relative">
+                  <Image
+                    source={{ uri: userData.avatar }}
+                    className="w-20 h-20 rounded-2xl border-3 border-white/40"
+                  />
+                  <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white" />
+                </View>
+                <View className="ml-4 flex-1">
+                  <Text className="text-white text-2xl font-bold">
+                    {userData.name}
+                  </Text>
+                  <Text className="text-white/70 text-sm mt-0.5">
+                    {userData.email}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center mt-4 gap-2">
+                <View className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full flex-row items-center">
+                  <Sparkles size={14} color="#FFD700" />
+                  <Text className="text-white text-xs font-medium ml-1.5">
+                    {userData.membership}
+                  </Text>
+                </View>
+                <View className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full flex-row items-center">
+                  <Award size={14} color="#FFD700" />
+                  <Text className="text-white text-xs font-medium ml-1.5">
+                    {userData.points} pts
+                  </Text>
                 </View>
               </View>
             </View>
@@ -324,7 +318,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
                     {section.title}
                   </Text>
                 )}
-                <View className="bg-white dark:bg-secondary-800 rounded-xl mx-4 overflow-hidden border border-gray-100 dark:border-gray-800">
+                <View className="bg-secondary-50 dark:bg-secondary-800 rounded-xl mx-4 overflow-hidden border border-gray-100 dark:border-gray-800">
                   {section.items.map((item, itemIndex) =>
                     renderMenuItem(item, itemIndex),
                   )}
@@ -335,7 +329,7 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
             {/* App Version */}
             <View className="items-center pb-8 mt-4">
               <Text className="text-gray-400 dark:text-gray-500 text-sm">
-                Puitu v2.0.1
+                Puitu v1.0.0
               </Text>
             </View>
           </ScrollView>

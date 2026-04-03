@@ -1,4 +1,6 @@
 // app/_layout.tsx
+import { FloatingAudioPlayer } from "@/components/audio/floating-audio-player";
+import { FloatingVideoPlayer } from "@/components/video/floating-video-player";
 import { SideDrawer } from "@/components/layout/side-drawer";
 import { AuthProvider } from "@/contexts/auth-context";
 import { FCMService } from "@/lib/services/fcm-service";
@@ -43,6 +45,8 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="index" options={{ headerShown: false }} />
               </Stack>
+              <FloatingAudioPlayer />
+              <FloatingVideoPlayer />
               <DrawerWrapper />
             </View>
           </NotificationProvider>

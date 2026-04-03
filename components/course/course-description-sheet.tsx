@@ -1,4 +1,5 @@
 import { X } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -18,6 +19,7 @@ interface CourseDescriptionSheetProps {
   likesCount: number;
   viewsCount: number;
   createdAt?: string;
+  onBuyCourse?: () => void;
 }
 
 export default function CourseDescriptionSheet({
@@ -27,6 +29,7 @@ export default function CourseDescriptionSheet({
   likesCount,
   viewsCount,
   createdAt,
+  onBuyCourse,
 }: CourseDescriptionSheetProps) {
   const [isMounted, setIsMounted] = useState(visible);
   const sheetTranslateY = useRef(new Animated.Value(520)).current;
@@ -170,6 +173,31 @@ export default function CourseDescriptionSheet({
                 </Text>
               </View>
             </View>
+
+            {onBuyCourse ? (
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={onBuyCourse}
+                className="mt-5 overflow-hidden rounded-3xl"
+              >
+                <LinearGradient
+                  colors={["#16A34A", "#0F766E"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  className="px-5 py-5"
+                >
+                  <Text className="text-[11px] font-bold uppercase tracking-[1.4px] text-emerald-50/85">
+                    Premium Unlock
+                  </Text>
+                  <Text className="mt-2 text-2xl font-extrabold text-white">
+                    Buy Whole Course
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-emerald-50/90">
+                    Open the payment screen with full-course access selected first.
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : null}
           </ScrollView>
         </Animated.View>
       </View>

@@ -530,7 +530,9 @@ export default function QuizPlayScreen() {
               <View className="mb-3 w-[48%] rounded-2xl bg-slate-50 p-4 dark:bg-secondary-800">
                 <Play size={18} color={isDarkMode ? "#CBD5E1" : "#475569"} />
                 <Text className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {quiz.max_attempts ?? "Unlimited"}
+                  {quiz.max_attempts && quiz.max_attempts > 0
+                    ? quiz.max_attempts
+                    : "Unlimited"}
                 </Text>
                 <Text className="text-xs text-slate-500 dark:text-slate-400">
                   Max Attempts

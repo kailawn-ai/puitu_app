@@ -260,21 +260,44 @@ const HomeScreen = () => {
             <CategorySection
               categories={homeData.categories}
               onPressItem={(cat) => {
+                const categorySlug = cat.slug?.toLowerCase() ?? "";
+                const categoryName = cat.name?.toLowerCase() ?? "";
+
                 if (
-                  cat.slug?.toLowerCase() === "courses" ||
-                  cat.name?.toLowerCase() === "courses"
+                  categorySlug === "courses" ||
+                  categoryName === "courses"
                 ) {
                   router.push("/course");
                   return;
                 }
 
                 if (
-                  cat.slug?.toLowerCase() === "quiz" ||
-                  cat.slug?.toLowerCase() === "quizzes" ||
-                  cat.name?.toLowerCase() === "quiz" ||
-                  cat.name?.toLowerCase() === "quizzes"
+                  categorySlug === "quiz" ||
+                  categorySlug === "quizzes" ||
+                  categoryName === "quiz" ||
+                  categoryName === "quizzes"
                 ) {
                   router.push("/quiz");
+                  return;
+                }
+
+                if (
+                  categorySlug.includes("old-question") ||
+                  categorySlug.includes("old_question") ||
+                  (categoryName.includes("old") &&
+                    categoryName.includes("question"))
+                ) {
+                  router.push("/old-question");
+                  return;
+                }
+
+                if (
+                  categorySlug.includes("job") ||
+                  categorySlug.includes("vacancy") ||
+                  categoryName.includes("job") ||
+                  categoryName.includes("vacancy")
+                ) {
+                  router.push("/job");
                   return;
                 }
 
@@ -287,6 +310,9 @@ const HomeScreen = () => {
 
             <OldQuestionsSection
               questions={homeData.old_questions}
+              onPressSeeAll={() => {
+                router.push("/old-question");
+              }}
               onPressItem={(question) => {
                 router.push(`/old-question/${question.id}`);
               }}

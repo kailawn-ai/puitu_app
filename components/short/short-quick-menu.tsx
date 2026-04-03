@@ -1,6 +1,13 @@
-import { Plus, FileText, MoreVertical, X } from "lucide-react-native";
+import { Plus, FileText, Film, MoreVertical, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import ShortDetailSheet from "@/components/short/short-detail-sheet";
 
 interface ShortQuickMenuProps {
@@ -11,6 +18,7 @@ interface ShortQuickMenuProps {
   commentsCount: number;
   sharesCount: number;
   onCreateShort?: () => void;
+  onMyShorts?: () => void;
 }
 
 export default function ShortQuickMenu({
@@ -21,6 +29,7 @@ export default function ShortQuickMenu({
   commentsCount,
   sharesCount,
   onCreateShort,
+  onMyShorts,
 }: ShortQuickMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -47,7 +56,7 @@ export default function ShortQuickMenu({
     () =>
       menuAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [50, 150],
+        outputRange: [50, 200],
       }),
     [menuAnimation],
   );
@@ -133,6 +142,28 @@ export default function ShortQuickMenu({
             <Plus size={25} color="#FFFFFF" />
           </View>
           <Text className="text-sm font-semibold text-white">Create short</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          className="mt-2 w-full flex-row items-center rounded-2xl border border-white/30 bg-white/20 px-4 py-1.5"
+          onPress={() => {
+            setMenuOpen(false);
+            if (onMyShorts) {
+              onMyShorts();
+              return;
+            }
+
+            Alert.alert(
+              "My shorts",
+              "My Shorts option is ready to be connected.",
+            );
+          }}
+        >
+          <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white/30">
+            <Film size={20} color="#FFFFFF" />
+          </View>
+          <Text className="text-sm font-semibold text-white">My Shorts</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
