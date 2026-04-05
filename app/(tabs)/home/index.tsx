@@ -178,18 +178,9 @@ const HomeScreen = () => {
         return true;
       }
 
-      alert.showWarning("Exit App", "Do you really want to exit the app?", [
-        {
-          text: "Cancel",
-          onPress: () => null,
-          style: "cancel",
-        },
-        {
-          text: "Exit",
-          onPress: () => BackHandler.exitApp(),
-          style: "destructive",
-        },
-      ]);
+      if (router.canGoBack()) {
+        router.back();
+      }
       return true;
     };
 
@@ -199,12 +190,15 @@ const HomeScreen = () => {
     );
 
     return () => subscription.remove();
-  }, [alert, showNotifications]);
+  }, [router, showNotifications]);
 
   return (
     <View className="flex-1 bg-slate-100 dark:bg-background-ddark">
       {/* Header */}
-      <View style={{ paddingTop: insets.top + 8 }} className="">
+      <View
+        style={{ paddingTop: insets.top + 8 }}
+        className="bg-slate-100/10 dark:bg-background-ddark"
+      >
         <View className="px-5 flex-row justify-between items-center mb-2">
           <View className="flex-row items-center">
             <HamburgerMenu />
@@ -263,10 +257,7 @@ const HomeScreen = () => {
                 const categorySlug = cat.slug?.toLowerCase() ?? "";
                 const categoryName = cat.name?.toLowerCase() ?? "";
 
-                if (
-                  categorySlug === "courses" ||
-                  categoryName === "courses"
-                ) {
+                if (categorySlug === "courses" || categoryName === "courses") {
                   router.push("/course");
                   return;
                 }
@@ -400,7 +391,9 @@ const HomeScreen = () => {
               onMarkAllRead={handleMarkAllRead}
               onPressItem={handleNotificationPress}
               onMarkAsReadItem={(item) =>
-                handleMarkAsReadNotification(item as (typeof notifications)[number])
+                handleMarkAsReadNotification(
+                  item as (typeof notifications)[number],
+                )
               }
               onDeleteItem={(item) =>
                 handleDeleteNotification(item as (typeof notifications)[number])

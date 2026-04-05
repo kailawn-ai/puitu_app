@@ -1,13 +1,14 @@
 import CommunityChatBubble from "@/components/community/community-chat-bubble";
 import { BackButton } from "@/components/ui/back-button";
+import LottieLoader from "@/components/ui/lottie-loader";
 import { useAuth } from "@/contexts/auth-context";
 import CommunityMessageService, {
   type CommunityRealtimeMessage,
-  type CommunityTypingRecord,
 } from "@/lib/services/community-message-service";
 import {
   CommunityService,
   type CommunityGroup,
+  type CommunityMessage,
 } from "@/lib/services/community-service";
 import { getStoredAuthUser } from "@/lib/utils/auth-user-store";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,9 +29,10 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   BackHandler,
   FlatList,
+  Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Text,
@@ -53,28 +55,6 @@ const buildMessageKey = (
   message: Pick<ChatMessage, "id" | "userId" | "createdAt" | "body">,
 ) => {
   return `${message.id}:${message.userId}:${message.createdAt ?? ""}:${message.body}`;
-};
-
-const toChatMessage = (
-  message: CommunityRealtimeMessage,
-): ChatMessage | null => {
-  if (!message.body?.trim()) return null;
-
-  return {
-    id: message.db_message_id
-      ? String(message.db_message_id)
-      : String(message.id),
-    userId: message.user_id,
-    body: message.body,
-    senderName: message.user?.name ?? null,
-    createdAt: message.created_at ?? null,
-    timestamp:
-      typeof message.timestamp === "number"
-        ? message.timestamp
-        : message.created_at
-          ? new Date(message.created_at).getTime()
-          : null,
-  };
 };
 
 const sortMessages = (messages: ChatMessage[]) => {
@@ -105,173 +85,258 @@ const formatMessageTime = (
   }).format(date);
 };
 
-const getTypingText = (typingIds: string[]) => {
-  if (!typingIds.length) return null;
-  if (typingIds.length === 1) return "Someone is typing...";
-  return `${typingIds.length} people are typing...`;
+const toChatMessageFromApi = (
+  message: CommunityMessage,
+): ChatMessage | null => {
+  if (!message.body?.trim()) return null;
+
+  return {
+    id: String(message.id),
+    userId: message.user_id,
+    body: message.body,
+    senderName: message.user?.name ?? null,
+    createdAt: message.created_at ?? null,
+    timestamp: message.created_at
+      ? new Date(message.created_at).getTime()
+      : null,
+  };
+};
+
+const toChatMessageFromRealtime = (
+  message: CommunityRealtimeMessage,
+): ChatMessage | null => {
+  if (!message.body?.trim()) return null;
+
+  return {
+    id: message.db_message_id
+      ? String(message.db_message_id)
+      : String(message.id),
+    userId: message.user_id,
+    body: message.body,
+    senderName: message.user?.name ?? null,
+    createdAt: message.created_at ?? null,
+    timestamp:
+      typeof message.timestamp === "number"
+        ? message.timestamp
+        : message.created_at
+          ? new Date(message.created_at).getTime()
+          : null,
+  };
 };
 
 export default function CommunityChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const groupId = Array.isArray(id) ? id[0] : id;
+
   const router = useRouter();
-  const { user } = useAuth();
-  const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
-  const listRef = useRef<FlatList<ChatMessage>>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { colorScheme } = useColorScheme();
+  const { user } = useAuth();
 
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [typingRecord, setTypingRecord] = useState<CommunityTypingRecord>({});
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(
     user?.uid ?? null,
   );
 
-  const loadChat = useCallback(async () => {
-    if (!id) return;
+  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const decryptCacheRef = useRef<Map<string, string>>(new Map());
 
-    try {
-      setLoading(true);
-
-      const [groupData, storedUser] = await Promise.all([
-        CommunityService.getGroupById(id),
-        getStoredAuthUser(),
-      ]);
-
-      setGroup(groupData);
-      setCurrentUserId(storedUser?.id ?? user?.uid ?? null);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (user?.uid) {
+      setCurrentUserId(user.uid);
+      return;
     }
-  }, [id, user?.uid]);
+
+    getStoredAuthUser()
+      .then((stored) => {
+        if (stored?.id) {
+          setCurrentUserId(stored.id);
+        }
+      })
+      .catch(() => undefined);
+  }, [user?.uid]);
 
   useEffect(() => {
-    loadChat();
-  }, [loadChat]);
+    const onBack = () => {
+      router.back();
+      return true;
+    };
 
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        router.back();
-        return true;
-      },
-    );
-
-    return () => backHandler.remove();
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+    return () => sub.remove();
   }, [router]);
 
   useEffect(() => {
-    if (!id) return;
-
-    const unsubscribeMessages =
-      CommunityMessageService.subscribeToRealtimeMessages(id, (items) => {
-        const nextMessages = items
-          .map((message) => toChatMessage(message))
-          .filter((message): message is ChatMessage => !!message);
-
-        setMessages(sortMessages(nextMessages));
-      });
-
-    const unsubscribeTyping = CommunityMessageService.subscribeToTyping(
-      id,
-      (typing) => {
-        setTypingRecord(typing);
-      },
-    );
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setIsKeyboardVisible(false);
+    });
 
     return () => {
-      unsubscribeMessages();
-      unsubscribeTyping();
+      showSub.remove();
+      hideSub.remove();
     };
-  }, [id]);
+  }, []);
+
+  const decryptRealtimeBodyIfNeeded = useCallback(
+    async (
+      message: CommunityRealtimeMessage,
+    ): Promise<CommunityRealtimeMessage> => {
+      if (!groupId || !message.is_body_encrypted || !message.body?.trim()) {
+        return message;
+      }
+
+      const encryptedBody = message.body;
+      const cached = decryptCacheRef.current.get(encryptedBody);
+      if (cached) {
+        return { ...message, body: cached, is_body_encrypted: false };
+      }
+
+      try {
+        const res = await CommunityMessageService.decryptRealtimeBody(
+          groupId,
+          encryptedBody,
+        );
+        decryptCacheRef.current.set(encryptedBody, res.body);
+        return { ...message, body: res.body, is_body_encrypted: false };
+      } catch {
+        return message;
+      }
+    },
+    [groupId],
+  );
+
+  useEffect(() => {
+    if (!groupId) {
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [groupData, initialMessages] = await Promise.all([
+          CommunityService.getGroupById(groupId),
+          CommunityMessageService.fetchMessages(groupId, { limit: 50 }),
+        ]);
+
+        if (!active) return;
+
+        setGroup(groupData);
+        setMessages(
+          sortMessages(
+            initialMessages
+              .map(toChatMessageFromApi)
+              .filter((item): item is ChatMessage => item !== null),
+          ),
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load().catch(() => {
+      if (active) {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+
+    let active = true;
+
+    const unsubscribeRealtime =
+      CommunityMessageService.subscribeToRealtimeMessages(
+        groupId,
+        (incomingMessages) => {
+          void (async () => {
+            const decoded = await Promise.all(
+              incomingMessages.map((item) => decryptRealtimeBodyIfNeeded(item)),
+            );
+
+            if (!active) return;
+
+            setMessages(
+              sortMessages(
+                decoded
+                  .map(toChatMessageFromRealtime)
+                  .filter((item): item is ChatMessage => item !== null),
+              ),
+            );
+          })();
+        },
+      );
+
+    return () => {
+      active = false;
+      unsubscribeRealtime();
+    };
+  }, [groupId, decryptRealtimeBodyIfNeeded]);
 
   useEffect(() => {
     if (!messages.length) return;
-    const timeout = setTimeout(() => {
+
+    const timer = setTimeout(() => {
       listRef.current?.scrollToEnd({ animated: true });
-    }, 80);
+    }, 50);
 
-    return () => clearTimeout(timeout);
-  }, [messages.length]);
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      if (id) {
-        CommunityMessageService.setTyping(id, false).catch(() => undefined);
-      }
-    };
-  }, [id]);
-
-  const activeTypingIds = useMemo(() => {
-    const now = Date.now();
-
-    return Object.entries(typingRecord)
-      .filter(([userId, state]) => {
-        if (!state?.typing || userId === currentUserId) return false;
-
-        const timestamp =
-          typeof state.timestamp === "number"
-            ? state.timestamp
-            : state.timestamp
-              ? new Date(state.timestamp).getTime()
-              : now;
-
-        return now - timestamp < 6000;
-      })
-      .map(([userId]) => userId);
-  }, [currentUserId, typingRecord]);
-
-  const typingText = useMemo(
-    () => getTypingText(activeTypingIds),
-    [activeTypingIds],
-  );
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   const handleDraftChange = (value: string) => {
     setDraft(value);
-
-    if (!id) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    if (value.trim()) {
-      CommunityMessageService.setTyping(id, true).catch(() => undefined);
-      typingTimeoutRef.current = setTimeout(() => {
-        CommunityMessageService.setTyping(id, false).catch(() => undefined);
-      }, 1600);
-    } else {
-      CommunityMessageService.setTyping(id, false).catch(() => undefined);
-    }
   };
 
   const handleSend = async () => {
     const body = draft.trim();
-    if (!body || !id || sending) return;
+    if (!groupId || !body || sending) return;
 
     try {
       setSending(true);
       setDraft("");
 
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      const created = await CommunityMessageService.sendMessage(groupId, {
+        body,
+      });
+      const localMessage = toChatMessageFromApi(created);
+
+      if (localMessage) {
+        setMessages((prev) => {
+          const map = new Map(prev.map((msg) => [msg.id, msg]));
+          map.set(localMessage.id, localMessage);
+          return sortMessages(Array.from(map.values()));
+        });
       }
-
-      await CommunityMessageService.setTyping(id, false);
-
-      await CommunityMessageService.sendMessage(id, { body });
     } finally {
       setSending(false);
     }
   };
+
+  const headerTitle = useMemo(
+    () => group?.name ?? "Community chat",
+    [group?.name],
+  );
+  const groupAvatarUri = useMemo(
+    () => group?.avatar_url?.trim() ?? "",
+    [group?.avatar_url],
+  );
 
   if (loading) {
     return (
@@ -287,7 +352,7 @@ export default function CommunityChatScreen() {
         style={{ flex: 1 }}
       >
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#7A25FF" />
+          <LottieLoader size={88} />
           <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
             Loading chat...
           </Text>
@@ -298,7 +363,7 @@ export default function CommunityChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
     >
@@ -314,22 +379,32 @@ export default function CommunityChatScreen() {
         style={{ flex: 1 }}
       >
         <View
-          className="border-b border-white/40 px-4 pb-4 dark:border-secondary-700 bg-white/65 dark:bg-black/65"
-          style={{ paddingTop: insets.top + 4 }}
+          className="border-b border-white/40 px-4 dark:border-secondary-700 bg-white/65 dark:bg-black/65"
+          style={{ paddingTop: insets.top + 0 }}
         >
           <View className="flex-row items-center">
             <BackButton onPress={() => router.back()} />
 
-            <View className="ml-3 h-12 w-12 items-center justify-center rounded-2xl bg-primary-500">
-              <MessageCircleMore size={22} color="#FFFFFF" />
-            </View>
+            {groupAvatarUri ? (
+              <View className="ml-3 h-12 w-12 overflow-hidden rounded-2xl bg-slate-200 dark:bg-secondary-700">
+                <Image
+                  source={{ uri: groupAvatarUri }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : (
+              <View className="ml-3 h-12 w-12 items-center justify-center rounded-2xl bg-primary-500">
+                <MessageCircleMore size={22} color="#FFFFFF" />
+              </View>
+            )}
 
             <View className="ml-3 flex-1">
               <Text
                 numberOfLines={1}
                 className="text-lg font-semibold text-slate-900 dark:text-white"
               >
-                {group?.name ?? "Community chat"}
+                {headerTitle}
               </Text>
 
               <View className="mt-1 flex-row items-center">
@@ -365,7 +440,6 @@ export default function CommunityChatScreen() {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 18,
-            paddingBottom: 20,
           }}
           renderItem={({ item }) => (
             <CommunityChatBubble
@@ -393,7 +467,14 @@ export default function CommunityChatScreen() {
 
         <View
           className="px-4 pt-3"
-          style={{ paddingBottom: insets.bottom + 10 }}
+          style={{
+            paddingBottom:
+              Platform.OS === "ios"
+                ? isKeyboardVisible
+                  ? 10
+                  : insets.bottom + 10
+                : 10,
+          }}
         >
           <View className="flex-row items-end rounded-[28px] border border-slate-200 bg-slate-50 px-3 py-1 dark:border-secondary-700 dark:bg-secondary-800">
             <TextInput

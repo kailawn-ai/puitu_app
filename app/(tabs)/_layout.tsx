@@ -28,8 +28,17 @@ export default function TabsLayout() {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (router.canGoBack()) {
+          router.back();
+          return true;
+        }
+
         if (pathname !== "/home" && ROOT_TAB_PATHS.has(pathname)) {
           router.replace("/home");
+          return true;
+        }
+
+        if (ROOT_TAB_PATHS.has(pathname)) {
           return true;
         }
 

@@ -54,13 +54,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const resolveNotificationUserId = useCallback(async () => {
     const authUserId = getAuth().currentUser?.uid;
     if (authUserId) {
-      setNotificationUserId((current) => current ?? authUserId);
+      setNotificationUserId((current) =>
+        current === authUserId ? current : authUserId,
+      );
       return authUserId;
     }
 
     const storedUser = await getStoredAuthUser();
     const storedId = storedUser?.id ?? null;
-    setNotificationUserId((current) => current ?? storedId);
+    setNotificationUserId((current) => (current === storedId ? current : storedId));
     return storedId;
   }, []);
 
@@ -68,14 +70,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     void resolveNotificationUserId();
   }, [resolveNotificationUserId]);
 
+  useEffect(() => {
+    const unsubscribeAuth = getAuth().onAuthStateChanged((firebaseUser) => {
+      const nextId = firebaseUser?.uid ?? null;
+      setNotificationUserId((current) => (current === nextId ? current : nextId));
+    });
+
+    return unsubscribeAuth;
+  }, []);
+
   const refreshNotifications = useCallback(async () => {
-    await resolveNotificationUserId();
+    const userId = await resolveNotificationUserId();
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
     try {
-      const items = await NotificationService.fetchUserNotifications();
+      const items = await NotificationService.fetchUserNotificationsRealtimeOnly();
       setNotifications(items);
     } catch (error) {
-      console.log("Notification fetch fallback failed:", error);
+      console.log("Realtime notification fetch failed:", error);
     } finally {
       setLoading(false);
     }
@@ -89,37 +105,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(true);
-    let isMounted = true;
-
     const unsubscribe = NotificationService.subscribeToRealtimeNotificationItems(
       notificationUserId,
       (items) => {
-        if (!isMounted) return;
-
         setNotifications(items);
         setLoading(false);
       },
       (error) => {
-        console.log("Realtime notifications unavailable, using fetch fallback:", error);
-
-        void NotificationService.fetchUserNotifications()
-          .then((items) => {
-            if (!isMounted) return;
-            setNotifications(items);
-          })
-          .catch((fetchError) => {
-            console.log("Notification fetch fallback failed:", fetchError);
-          })
-          .finally(() => {
-            if (isMounted) {
-              setLoading(false);
-            }
-          });
+        console.log("Realtime notifications subscription failed:", error);
+        setLoading(false);
       },
     );
 
     return () => {
-      isMounted = false;
       unsubscribe();
     };
   }, [notificationUserId]);

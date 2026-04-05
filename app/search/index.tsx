@@ -344,7 +344,7 @@ export default function SearchScreen() {
                       className={`mr-3 flex-row items-center rounded-full px-4 py-3 ${
                         active
                           ? "bg-primary-500"
-                          : "bg-slate-100 dark:bg-secondary-800 elevation-sm"
+                          : "bg-white dark:bg-secondary-800 elevation-sm"
                       }`}
                     >
                       <Icon

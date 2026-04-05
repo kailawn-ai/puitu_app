@@ -213,26 +213,25 @@ export default function CreateCommunityGroupScreen() {
           end={{ x: 0.5, y: 0 }}
           style={{ flex: 1 }}
         >
-          <View
-            className="px-5 flex-row items-center justify-between"
-            style={{ paddingTop: insets.top + 1 }}
-          >
-            <BackButton onPress={() => router.back()} />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white">
-              Create Group
-            </Text>
-            <View className="h-12 w-12" />
-          </View>
+          <BackButton
+            onPress={() => router.back()}
+            className="absolute top-12 left-4 z-10"
+          />
 
           <ScrollView
-            className="mt-4"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingBottom: Math.max(insets.bottom + 140, 164),
+              paddingTop: insets.top + 1,
+              paddingBottom: insets.bottom + 190,
             }}
           >
-            <View className="px-5">
-              <View className="rounded-3xl bg-secondary-50 p-5 dark:bg-secondary-700">
+            <View className="px-3">
+              <View className="rounded-[30px] bg-secondary-50 p-5 mb-3 dark:bg-secondary-700">
+                <View className="px-5 mb-5 flex-row items-center justify-center">
+                  <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Create Group
+                  </Text>
+                </View>
                 <View className="items-center">
                   <View className="relative">
                     <TouchableOpacity
@@ -274,9 +273,9 @@ export default function CreateCommunityGroupScreen() {
                     Group avatar
                   </Text>
                 </View>
+              </View>
 
-                <View className="my-5 h-px bg-slate-200 dark:bg-secondary-700" />
-
+              <View className="px-6">
                 <Text className="text-lg font-bold text-gray-900 dark:text-white">
                   Start a new community
                 </Text>

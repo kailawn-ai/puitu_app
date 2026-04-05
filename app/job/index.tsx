@@ -39,9 +39,10 @@ type SortOption = {
 
 const SORT_OPTIONS: SortOption[] = [
   { label: "Newest", sort_by: "created_at", sort_dir: "desc" },
+  { label: "Job Type", sort_by: "job_type", sort_dir: "asc" },
+
   { label: "Oldest", sort_by: "created_at", sort_dir: "asc" },
   { label: "Title A-Z", sort_by: "title", sort_dir: "asc" },
-  { label: "Job Type", sort_by: "job_type", sort_dir: "asc" },
 ];
 
 const JOB_TYPE_LABEL: Record<Job["job_type"], string> = {
@@ -79,8 +80,10 @@ function dateLabel(input?: string): string {
 
 function JobListCard({ job, onPress }: { job: Job; onPress: () => void }) {
   const qualificationText =
-    job.qualifications?.map((q) => q.name).filter(Boolean).join(", ") ||
-    "All qualifications";
+    job.qualifications
+      ?.map((q) => q.name)
+      .filter(Boolean)
+      .join(", ") || "All qualifications";
 
   return (
     <Pressable
@@ -88,7 +91,7 @@ function JobListCard({ job, onPress }: { job: Job; onPress: () => void }) {
       className="mb-3 overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
     >
       <View className="flex-row p-4">
-        <View className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-100 dark:bg-zinc-800">
+        <View className="h-20 w-20 overflow-hidden rounded-xl bg-slate-100 dark:bg-zinc-800">
           {job.image ? (
             <Image source={{ uri: job.image }} className="h-full w-full" />
           ) : (
@@ -314,13 +317,6 @@ export default function JobListScreen() {
             </View>
 
             <View className="mt-4 flex-row items-center">
-              <View className="mr-2 rounded-full bg-slate-100 px-3 py-2 dark:bg-zinc-800">
-                <ArrowDownUp
-                  size={14}
-                  color={isDarkMode ? "#CBD5E1" : "#475569"}
-                />
-              </View>
-
               <FlatList
                 horizontal
                 data={SORT_OPTIONS}

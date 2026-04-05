@@ -1,9 +1,9 @@
 import { type OldQuestion } from "@/lib/services/old-service";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  ArrowRight,
   BookOpen,
   Calendar,
-  Download,
   Eye,
   FileText,
   GraduationCap,
@@ -69,11 +69,11 @@ export default function OldCardUI({
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           onPress={onPressPreview}
-          className="active:opacity-90"
+          className="active:opacity-90 px-2"
         >
           <View className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
             <View className="flex-row">
-              <View className="w-24 h-24 bg-zinc-100 dark:bg-zinc-800">
+              <View className="w-28 h-28 bg-zinc-100 dark:bg-zinc-800">
                 {hasValidImage ? (
                   <Image
                     source={{ uri: imageUrl }}
@@ -130,7 +130,7 @@ export default function OldCardUI({
                       fileUrl ? "bg-primary/10" : "bg-zinc-100 dark:bg-zinc-800"
                     }`}
                   >
-                    <Download
+                    <ArrowRight
                       size={16}
                       color={fileUrl ? "#3B82F6" : "#9CA3AF"}
                     />
@@ -231,7 +231,7 @@ export default function OldCardUI({
                     fileUrl ? "bg-primary" : "bg-white/10"
                   }`}
                 >
-                  <Download size={18} color="white" />
+                  <ArrowRight size={18} color="white" />
                   <Text className="ml-2 text-white font-semibold">
                     {fileUrl ? "Download" : "Unavailable"}
                   </Text>
@@ -354,7 +354,7 @@ export default function OldCardUI({
                     : "bg-zinc-200 dark:bg-zinc-800"
                 }`}
               >
-                <Download size={18} color={fileUrl ? "#FFFFFF" : "#9CA3AF"} />
+                <ArrowRight size={18} color={fileUrl ? "#FFFFFF" : "#9CA3AF"} />
                 <Text
                   className={`ml-2 font-semibold ${
                     fileUrl ? "text-white" : "text-zinc-500 dark:text-zinc-400"

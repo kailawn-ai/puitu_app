@@ -181,15 +181,12 @@ export default function OldQuestionListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [qualificationsMeta, setQualificationsMeta] = useState<
-    PaginatedResponse<QualificationLite> | null
-  >(null);
-  const [yearsMeta, setYearsMeta] = useState<PaginatedResponse<YearLite> | null>(
-    null,
-  );
-  const [semestersMeta, setSemestersMeta] = useState<PaginatedResponse<SemesterLite> | null>(
-    null,
-  );
+  const [qualificationsMeta, setQualificationsMeta] =
+    useState<PaginatedResponse<QualificationLite> | null>(null);
+  const [yearsMeta, setYearsMeta] =
+    useState<PaginatedResponse<YearLite> | null>(null);
+  const [semestersMeta, setSemestersMeta] =
+    useState<PaginatedResponse<SemesterLite> | null>(null);
   const [qualificationsLoading, setQualificationsLoading] = useState(false);
   const [yearsLoading, setYearsLoading] = useState(false);
   const [semestersLoading, setSemestersLoading] = useState(false);
@@ -215,7 +212,7 @@ export default function OldQuestionListScreen() {
   }, [router]);
 
   const mergePaginated = useCallback(
-    <T extends { id: number },>(
+    <T extends { id: number }>(
       current: PaginatedResponse<T> | null,
       incoming: PaginatedResponse<T>,
     ): PaginatedResponse<T> => {
@@ -460,7 +457,7 @@ export default function OldQuestionListScreen() {
                 onChangeText={setSearch}
                 placeholder="Search old questions, subjects, courses..."
                 placeholderTextColor="#94A3B8"
-                className="flex-row px-3 py-3 justify-center text-base text-slate-900 dark:text-white"
+                className="flex-1 px-3 py-3 text-base text-slate-900 dark:text-white"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
@@ -468,14 +465,14 @@ export default function OldQuestionListScreen() {
               {search ? (
                 <Pressable
                   onPress={() => setSearch("")}
-                  className="h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-zinc-700"
+                  className="h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800"
                 >
                   <X size={16} color={isDarkMode ? "#E2E8F0" : "#475569"} />
                 </Pressable>
               ) : null}
             </View>
 
-            <View className="mt-4 flex-row items-center justify-between">
+            <View className="mt-4 px-1 flex-row items-center justify-between">
               <View className="flex-1 pr-3">
                 <Text className="text-xs font-semibold uppercase tracking-[1.2px] text-slate-400 dark:text-slate-500">
                   {resultsLabel} questions found
@@ -487,7 +484,7 @@ export default function OldQuestionListScreen() {
                 )}
               </View>
 
-              <View className="flex-row items-center rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-zinc-700 dark:bg-zinc-800">
+              <View className="flex-row items-center rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-zinc-700 dark:bg-zinc-800 elevation-sm">
                 <Pressable
                   onPress={() => setViewMode("grid")}
                   className={`rounded-full px-3 py-2 ${

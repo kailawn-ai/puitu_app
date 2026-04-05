@@ -1,29 +1,25 @@
-import OldCardUI from "@/components/old-question/old-card-ui";
 import { BackButton } from "@/components/ui/back-button";
 import MediaErrorUI from "@/components/ui/media-error-ui";
-import OldService, { type OldQuestion } from "@/lib/services/old-service";
 import { extractDeniedProductId } from "@/lib/utils/product-access";
+import { OldService, type OldQuestion } from "@/lib/services/old-service";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ScreenCapture from "expo-screen-capture";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  BackHandler,
-  Linking,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import Pdf from "react-native-pdf";
+import { ActivityIndicator, BackHandler, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const LOADER_ANIMATION = require("../../assets/icons/loader.json");
 
 const OldQuestionDetailScreen = () => {
-  const { id, courseId } = useLocalSearchParams<{
+  const { id, courseId, modelType, modelId } = useLocalSearchParams<{
     id: string;
     courseId?: string;
+    modelType?: string;
+    modelId?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -36,10 +32,12 @@ const OldQuestionDetailScreen = () => {
   const [showBuyAction, setShowBuyAction] = useState(false);
   const [lockedProductId, setLockedProductId] = useState<string | undefined>();
   const [question, setQuestion] = useState<OldQuestion | null>(null);
+  const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
 
   const fetchQuestion = useCallback(async () => {
     if (!id) {
       setError("Missing old question id");
+      setShowBuyAction(false);
       setLoading(false);
       return;
     }
@@ -51,7 +49,14 @@ const OldQuestionDetailScreen = () => {
       setErrorSheetVisible(false);
       setShowBuyAction(false);
       setLockedProductId(undefined);
-      const data = await OldService.getOldQuestionById(id, "old-question", id);
+      setQuestion(null);
+      setPdfLoadError(null);
+
+      const data = await OldService.getOldQuestionById(
+        id,
+        modelType ?? "old-question",
+        modelId ?? id,
+      );
       setQuestion(data);
     } catch (err: any) {
       const title = err?.data?.head || "Old Question Error";
@@ -59,11 +64,7 @@ const OldQuestionDetailScreen = () => {
         err?.data?.message ?? err?.message ?? "Failed to load old question";
       const errorCode = String(err?.data?.code ?? "");
       const deniedProductId = extractDeniedProductId(err?.data);
-      const requiresPurchase =
-        err?.data?.requiresPurchase === true ||
-        errorCode === "666" ||
-        errorCode === "667" ||
-        /purchase/i.test(message);
+      const requiresPurchase = errorCode === "666" || errorCode === "667";
 
       setErrorTitle(title);
       setError(message);
@@ -73,7 +74,7 @@ const OldQuestionDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, modelType, modelId]);
 
   useEffect(() => {
     fetchQuestion();
@@ -91,19 +92,13 @@ const OldQuestionDetailScreen = () => {
     return () => backHandler.remove();
   }, [router]);
 
-  const handleOpenFile = async () => {
-    const url = question?.detail?.file;
-    if (!url) return;
+  useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync().catch(() => {});
 
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      await Linking.openURL(url);
-    }
-  };
-
-  const handleRetry = () => {
-    fetchQuestion();
-  };
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    };
+  }, []);
 
   const handleBuy = () => {
     router.push({
@@ -113,7 +108,7 @@ const OldQuestionDetailScreen = () => {
         modelId: String(id),
         productId: lockedProductId,
         title: "Old Question Access",
-        returnTo: `/old-question/${id}${courseId ? `?courseId=${courseId}` : ""}`,
+        returnTo: `/old-question/${id}?courseId=${courseId ?? ""}&modelType=${modelType ?? "old-question"}&modelId=${modelId ?? id}`,
       },
     });
   };
@@ -146,6 +141,13 @@ const OldQuestionDetailScreen = () => {
     );
   }
 
+  const pdfSource = question?.detail?.file
+    ? {
+        uri: question.detail.file,
+        cache: true,
+      }
+    : null;
+
   return (
     <LinearGradient
       colors={
@@ -156,52 +158,57 @@ const OldQuestionDetailScreen = () => {
       end={{ x: 0.5, y: 0 }}
       style={{ flex: 1 }}
     >
-      <BackButton
-        onPress={() => router.back()}
-        className="absolute top-12 left-4 z-10"
-      />
       <View className="flex-1">
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingTop: insets.top + 1,
-            paddingBottom: 20,
-          }}
+        <View
+          className="px-3 mb-2 absolute left-0 right-0 z-10"
+          style={{ paddingTop: insets.top + 1 }}
         >
-          {question ? (
-            <OldCardUI question={question} onPressDownload={handleOpenFile} />
-          ) : (
-            <View className="flex-1 items-center justify-center px-4">
-              <View className="w-full rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-                <Text className="text-center text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                  Unable to load old question
-                </Text>
-                <Text className="mt-2 text-center text-zinc-600 dark:text-zinc-300">
-                  {error ?? "Please retry or go back."}
-                </Text>
-                <Pressable
-                  onPress={handleRetry}
-                  className="mt-4 rounded-lg bg-zinc-200 px-4 py-2 dark:bg-zinc-800"
-                >
-                  <Text className="text-center font-medium text-zinc-900 dark:text-zinc-100">
-                    Retry
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      </View>
+          <BackButton onPress={() => router.back()} />
+        </View>
 
-      <MediaErrorUI
-        visible={errorSheetVisible}
-        title={errorTitle}
-        message={error}
-        onClose={() => setErrorSheetVisible(false)}
-        onRetry={handleRetry}
-        onBuy={showBuyAction ? handleBuy : undefined}
-        buyLabel="Buy this old question"
-      />
+        {pdfSource && !pdfLoadError ? (
+          <Pdf
+            source={pdfSource}
+            trustAllCerts={false}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1, width: "100%", height: "100%" }}
+            renderActivityIndicator={() => (
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  Loading PDF...
+                </Text>
+              </View>
+            )}
+            onError={(pdfError) => {
+              setPdfLoadError(
+                pdfError?.message ?? "Unable to render this PDF.",
+              );
+            }}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center px-6">
+            <View className="rounded-3xl border border-zinc-200 bg-white/90 px-6 py-5 dark:border-zinc-800 dark:bg-zinc-900/90">
+              <Text className="text-center text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                Unable to load PDF
+              </Text>
+              <Text className="mt-2 text-center text-zinc-600 dark:text-zinc-300">
+                {pdfLoadError ?? "No PDF file available for this old question."}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <MediaErrorUI
+          visible={errorSheetVisible}
+          title={errorTitle}
+          message={error}
+          onClose={() => setErrorSheetVisible(false)}
+          onRetry={fetchQuestion}
+          onBuy={showBuyAction ? handleBuy : undefined}
+          buyLabel="Buy this old question"
+        />
+      </View>
     </LinearGradient>
   );
 };

@@ -67,12 +67,12 @@ export default function CourseListCard({
     <TouchableOpacity
       activeOpacity={0.92}
       onPress={handlePress}
-      className="mb-3 overflow-hidden rounded-[26px] border border-slate-200 bg-white dark:border-secondary-700 dark:bg-secondary-900"
+      className="mb-3 overflow-hidden rounded-[26px] border border-slate-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-900"
     >
       <View className="flex-row p-3">
         <Image
           source={{ uri: course.thumbnail_url || PLACEHOLDER_IMAGE }}
-          className="h-24 w-24 rounded-[20px] bg-slate-200 dark:bg-secondary-800"
+          className="h-24 w-24 rounded-[10px] bg-slate-200 dark:bg-secondary-800"
           resizeMode="cover"
         />
 

@@ -11,6 +11,7 @@ import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BackButton } from "@/components/ui/back-button";
 
 const LOADER_ANIMATION = require("../../assets/icons/loader.json");
 
@@ -161,7 +162,15 @@ const VideoDetailScreen = () => {
         setLoading(false);
       }
     }
-  }, [id, courseId, modelType, modelId, setCurrentVideo, closePlayer, isCurrentVideoMatch]);
+  }, [
+    id,
+    courseId,
+    modelType,
+    modelId,
+    setCurrentVideo,
+    closePlayer,
+    isCurrentVideoMatch,
+  ]);
 
   useEffect(() => {
     if (isCurrentVideoMatch && currentVideo) {
@@ -268,6 +277,12 @@ const VideoDetailScreen = () => {
       style={{ flex: 1 }}
     >
       <View className="flex-1">
+        <View
+          className="px-3 mb-2 absolute left-0 right-0 z-10"
+          style={{ paddingTop: insets.top + 1 }}
+        >
+          <BackButton onPress={() => router.back()} />
+        </View>
         <ScrollView
           contentContainerStyle={{
             paddingTop: insets.top + 4,

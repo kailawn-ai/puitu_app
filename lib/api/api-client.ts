@@ -8,11 +8,16 @@ const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
   "https://puitu.buannelstudio.in/api/v1";
 const API_TIMEOUT = 30000;
+const TOKEN_REFRESH_BUFFER_SECONDS = 60;
 
 interface RequestOptions extends RequestInit {
   timeout?: number;
   skipAuth?: boolean;
   omitJsonContentType?: boolean;
+  params?: Record<
+    string,
+    string | number | boolean | null | undefined | Array<string | number | boolean>
+  >;
 }
 
 interface ApiResponse<T = any> {
@@ -39,6 +44,10 @@ export type UploadFileInput =
     };
 
 class ApiClient {
+  private accessTokenCache: string | null = null;
+  private accessTokenPromise: Promise<string | null> | null = null;
+  private lastStoredToken: string | null = null;
+
   private async getHeaders(skipAuth = false): Promise<Record<string, string>> {
     const device = await getDeviceInfo();
     const headers: Record<string, string> = {
@@ -58,20 +67,83 @@ class ApiClient {
     return headers;
   }
 
+  private getTokenExpiry(token: string): number | null {
+    try {
+      const [, payloadPart] = token.split(".");
+      if (!payloadPart) {
+        return null;
+      }
+      const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+      const padded =
+        normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+      if (typeof atob !== "function") {
+        return null;
+      }
+      const decoded = atob(padded);
+      const payload = JSON.parse(decoded);
+      return typeof payload.exp === "number" ? payload.exp : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isTokenUsable(token: string | null): boolean {
+    if (!token) {
+      return false;
+    }
+    const exp = this.getTokenExpiry(token);
+    if (!exp) {
+      return false;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    return exp - now > TOKEN_REFRESH_BUFFER_SECONDS;
+  }
+
   private async getAccessToken(): Promise<string | null> {
+    if (this.isTokenUsable(this.accessTokenCache)) {
+      return this.accessTokenCache;
+    }
+
+    if (this.accessTokenPromise) {
+      return this.accessTokenPromise;
+    }
+
+    this.accessTokenPromise = this.resolveAccessToken();
+    try {
+      return await this.accessTokenPromise;
+    } finally {
+      this.accessTokenPromise = null;
+    }
+  }
+
+  private async resolveAccessToken(): Promise<string | null> {
     try {
       // Try to get from Firebase (if using Firebase Auth with Laravel Sanctum)
       const user = auth().currentUser;
       if (user) {
-        const idToken = await user.getIdToken();
+        const cachedUserToken = this.accessTokenCache;
+        if (this.isTokenUsable(cachedUserToken)) {
+          return cachedUserToken;
+        }
 
-        // Optionally store in AsyncStorage for offline access
-        await AsyncStorage.setItem("@access_token", idToken);
+        const idToken = await user.getIdToken();
+        this.accessTokenCache = idToken;
+
+        // Persist only when token actually changed
+        if (this.lastStoredToken !== idToken) {
+          await AsyncStorage.setItem("@access_token", idToken);
+          this.lastStoredToken = idToken;
+        }
         return idToken;
       }
 
       // Fallback to AsyncStorage
       const storedToken = await AsyncStorage.getItem("@access_token");
+      if (this.isTokenUsable(storedToken)) {
+        this.accessTokenCache = storedToken;
+        this.lastStoredToken = storedToken;
+        return storedToken;
+      }
       return storedToken;
     } catch (error) {
       console.error("Error getting access token:", error);
@@ -131,6 +203,34 @@ class ApiClient {
     };
   }
 
+  private buildQueryString(
+    params?: RequestOptions["params"],
+  ): string {
+    if (!params) {
+      return "";
+    }
+
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          searchParams.append(key, String(item));
+        });
+        return;
+      }
+
+      searchParams.append(key, String(value));
+    });
+
+    const query = searchParams.toString();
+    return query ? `?${query}` : "";
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestOptions = {},
@@ -139,6 +239,7 @@ class ApiClient {
       timeout = API_TIMEOUT,
       skipAuth = false,
       omitJsonContentType = false,
+      params,
       ...fetchOptions
     } = options;
 
@@ -152,7 +253,8 @@ class ApiClient {
         delete headers["Content-Type"];
       }
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const requestUrl = `${API_BASE_URL}${endpoint}${this.buildQueryString(params)}`;
+      const response = await fetch(requestUrl, {
         ...fetchOptions,
         headers: {
           ...headers,
@@ -276,6 +378,9 @@ class ApiClient {
   // Clear stored tokens
   async clearAuth(): Promise<void> {
     await AsyncStorage.removeItem("@access_token");
+    this.accessTokenCache = null;
+    this.accessTokenPromise = null;
+    this.lastStoredToken = null;
     // You might want to keep device ID for analytics
   }
 }

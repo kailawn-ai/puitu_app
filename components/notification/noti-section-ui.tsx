@@ -41,7 +41,7 @@ export default function NotificationSection({
       <View className="px-4 py-1 flex-row items-center justify-between border-b border-slate-100 dark:border-secondary-700">
         <View>
           <Text className="text-lg font-bold text-slate-900 dark:text-white">
-            Notifications
+            Notification
           </Text>
           <Text className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {unreadCount > 0

@@ -19,6 +19,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "buildType": "app-bundle",
       "env": {
         "EXPO_PUBLIC_WEB_CLIENT_ID": "34507839177-gmpauvib2fashs19sdem8l2e758vfipb.apps.googleusercontent.com"
       }

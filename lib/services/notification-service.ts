@@ -268,6 +268,17 @@ const fetchNotificationsFromApi = async (
 };
 
 export const NotificationService = {
+  async fetchUserNotificationsRealtimeOnly(): Promise<AppNotificationItem[]> {
+    const userId = await resolveNotificationUserId();
+    if (!userId) return [];
+
+    const payload = await RealtimeDBService.get<NotificationMap>(
+      `notifications/${userId}`,
+    );
+
+    return normalizeItems(payload);
+  },
+
   async fetchUserNotifications(): Promise<AppNotificationItem[]> {
     const response = await this.fetchUserNotificationsPage();
     return response.data;

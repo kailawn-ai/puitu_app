@@ -12,29 +12,17 @@ interface HamburgerMenuProps {
 }
 
 export function HamburgerMenu({
-  size = 52, // Default size for the button
+  // Default size for the button
   iconSize = 24,
-  className = "",
 }: HamburgerMenuProps) {
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === "dark";
-
-  // Background color with very low opacity for subtle visibility
-  const backgroundColor = isDarkMode
-    ? "rgba(0, 0, 0, 0.3)"
-    : "rgb(255, 255, 255)";
-
   return (
     <TouchableOpacity
       onPress={openDrawer}
       activeOpacity={0.7}
-      className={`items-center justify-center rounded-full ${className}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: backgroundColor,
-      }}
+      className="p-4 bg-white dark:bg-secondary-700 rounded-2xl"
     >
       <Menu
         size={iconSize}

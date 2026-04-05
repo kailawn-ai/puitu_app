@@ -24,7 +24,7 @@ export default function QualificationBrowseCard({
       <TouchableOpacity
         activeOpacity={0.92}
         onPress={() => onPress?.(qualification)}
-        className="mb-3 flex-1 rounded-3xl border border-slate-200 bg-white p-3 dark:border-secondary-700 dark:bg-secondary-900 elevation-sm"
+        className="mb-3 flex-1 rounded-3xl border border-slate-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
       >
         <Text
           numberOfLines={2}

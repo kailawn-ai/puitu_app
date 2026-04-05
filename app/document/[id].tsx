@@ -176,7 +176,7 @@ const DocumentDetailScreen = () => {
             source={pdfSource}
             trustAllCerts={false}
             showsVerticalScrollIndicator={false}
-            style={{ flex: 1, width: "100%", height: "100%", marginTop: 48 }}
+            style={{ flex: 1, width: "100%", height: "100%" }}
             renderActivityIndicator={() => (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator size="small" color="#3B82F6" />

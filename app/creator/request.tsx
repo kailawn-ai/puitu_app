@@ -328,11 +328,7 @@ export default function CreatorRequestScreen() {
   return (
     <View className="flex-1 bg-stone-100 dark:bg-neutral-950">
       <LinearGradient
-        colors={
-          isDark
-            ? ["#0F172A", "#111827", "#020617"]
-            : ["#FFF9F1", "#F6EEDF", "#EADFCC"]
-        }
+        colors={isDark ? ["#09090B", "#171717"] : ["#F8FAFC", "#E2E8F0"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         className="flex-1"
@@ -411,15 +407,7 @@ export default function CreatorRequestScreen() {
                 </Text>
               </View>
             ) : (
-              <View
-                className="mt-6 rounded-[14px] border p-3 mx-1"
-                style={{
-                  backgroundColor: isDark
-                    ? "rgba(10, 15, 28, 0.92)"
-                    : "#FFFDF9",
-                  borderColor: isDark ? "#1F2937" : "#E9DECC",
-                }}
-              >
+              <View className="mt-6 p-4 mx-1">
                 <View className="mb-5">
                   <View className="flex-row items-center justify-between">
                     <Text

@@ -304,7 +304,9 @@ export function SideDrawer({ isVisible, onClose }: SideDrawerProps) {
           {/* Menu Content */}
           <ScrollView
             className="flex-1 mb-2 pt-2"
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator
+            indicatorStyle={isDark ? "white" : "black"}
+            persistentScrollbar
           >
             <RequestCreatorCard
               isDark={isDark}

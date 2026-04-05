@@ -487,18 +487,12 @@ const OnboardingScreen = () => {
         return true;
       }
 
-      alert.showWarning("Exit App", "Do you really want to exit the app?", [
-        {
-          text: "Cancel",
-          onPress: () => null,
-          style: "cancel",
-        },
-        {
-          text: "Exit",
-          onPress: () => BackHandler.exitApp(),
-          style: "destructive",
-        },
-      ]);
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+
+      router.replace("/login");
       return true;
     };
 
@@ -508,7 +502,7 @@ const OnboardingScreen = () => {
     );
 
     return () => subscription.remove();
-  }, [currentIndex]);
+  }, [currentIndex, router]);
 
   const handleSubmit = async () => {
     let response: UserProfile | null = null;

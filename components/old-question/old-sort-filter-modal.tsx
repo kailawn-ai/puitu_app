@@ -55,15 +55,16 @@ type Props = {
   onApply: (payload: ApplyPayload) => void;
 };
 
-const tabConfig: Array<{ key: FilterTab; label: string; searchLabel: string }> = [
-  {
-    key: "qualification",
-    label: "Qualifications",
-    searchLabel: "Search qualifications...",
-  },
-  { key: "year", label: "Years", searchLabel: "Search years..." },
-  { key: "semester", label: "Semesters", searchLabel: "Search semesters..." },
-];
+const tabConfig: Array<{ key: FilterTab; label: string; searchLabel: string }> =
+  [
+    {
+      key: "qualification",
+      label: "Qualifications",
+      searchLabel: "Search qualifications...",
+    },
+    { key: "year", label: "Years", searchLabel: "Search years..." },
+    { key: "semester", label: "Semesters", searchLabel: "Search semesters..." },
+  ];
 
 function normalize(value?: string | null): string {
   return (value ?? "").trim().toLowerCase();
@@ -111,12 +112,17 @@ export default function OldSortFilterModal({
     year: "",
     semester: "",
   });
-  const [draftSort, setDraftSort] = useState<OldQuestionSortOption>(initialSort);
-  const [draftQualificationId, setDraftQualificationId] = useState<number | undefined>(
-    initialQualificationId,
+  const [draftSort, setDraftSort] =
+    useState<OldQuestionSortOption>(initialSort);
+  const [draftQualificationId, setDraftQualificationId] = useState<
+    number | undefined
+  >(initialQualificationId);
+  const [draftYearId, setDraftYearId] = useState<number | undefined>(
+    initialYearId,
   );
-  const [draftYearId, setDraftYearId] = useState<number | undefined>(initialYearId);
-  const [draftSemesterId, setDraftSemesterId] = useState<number | undefined>(initialSemesterId);
+  const [draftSemesterId, setDraftSemesterId] = useState<number | undefined>(
+    initialSemesterId,
+  );
 
   useEffect(() => {
     if (!visible) return;
@@ -124,7 +130,13 @@ export default function OldSortFilterModal({
     setDraftQualificationId(initialQualificationId);
     setDraftYearId(initialYearId);
     setDraftSemesterId(initialSemesterId);
-  }, [visible, initialSort, initialQualificationId, initialYearId, initialSemesterId]);
+  }, [
+    visible,
+    initialSort,
+    initialQualificationId,
+    initialYearId,
+    initialSemesterId,
+  ]);
 
   const filteredQualifications = useMemo(() => {
     const q = normalize(search.qualification);
@@ -148,8 +160,10 @@ export default function OldSortFilterModal({
   const filteredSemesters = useMemo(() => {
     const q = normalize(search.semester);
     const list: SelectItem[] =
-      semesters?.data.map((item) => ({ id: item.id, label: semesterName(item) })) ??
-      [];
+      semesters?.data.map((item) => ({
+        id: item.id,
+        label: semesterName(item),
+      })) ?? [];
     if (!q) return list;
     return list.filter((item) => normalize(item.label).includes(q));
   }, [semesters?.data, search.semester]);
@@ -225,12 +239,20 @@ export default function OldSortFilterModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View className="flex-1 justify-end bg-black/35">
         <View className="h-[86%] rounded-t-[30px] border border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
           <View className="flex-row items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-zinc-700">
             <View className="flex-row items-center">
-              <SlidersHorizontal size={18} color={isDarkMode ? "#E2E8F0" : "#0F172A"} />
+              <SlidersHorizontal
+                size={18}
+                color={isDarkMode ? "#E2E8F0" : "#0F172A"}
+              />
               <Text className="ml-2 text-lg font-bold text-slate-900 dark:text-white">
                 Sort & Filter
               </Text>
@@ -243,8 +265,8 @@ export default function OldSortFilterModal({
             </Pressable>
           </View>
 
-          <View className="px-5 pt-4">
-            <Text className="text-xs font-semibold uppercase tracking-[1.1px] text-slate-500 dark:text-slate-400">
+          <View className="pt-4">
+            <Text className="ml-5 text-xs font-semibold uppercase tracking-[1.1px] text-slate-500 dark:text-slate-400">
               Sort By
             </Text>
             <FlatList
@@ -252,7 +274,11 @@ export default function OldSortFilterModal({
               data={sortOptions}
               keyExtractor={(item) => item.label}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingTop: 10, paddingBottom: 6 }}
+              contentContainerStyle={{
+                paddingTop: 10,
+                paddingLeft: 15,
+                paddingBottom: 6,
+              }}
               ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
               renderItem={({ item }) => {
                 const active =
@@ -264,13 +290,15 @@ export default function OldSortFilterModal({
                     onPress={() => setDraftSort(item)}
                     className={`rounded-full px-4 py-2.5 ${
                       active
-                        ? "bg-slate-900 dark:bg-white"
+                        ? "bg-primary dark:bg-primary"
                         : "border border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"
                     }`}
                   >
                     <Text
                       className={`text-sm font-semibold ${
-                        active ? "text-white dark:text-zinc-900" : "text-slate-700 dark:text-slate-200"
+                        active
+                          ? "text-white"
+                          : "text-slate-700 dark:text-slate-200"
                       }`}
                     >
                       {item.label}
@@ -285,20 +313,22 @@ export default function OldSortFilterModal({
             <Text className="text-xs font-semibold uppercase tracking-[1.1px] text-slate-500 dark:text-slate-400">
               Filter By
             </Text>
-            <View className="mt-2 flex-row rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-zinc-700 dark:bg-zinc-800">
+            <View className="mt-2 flex-row rounded-full border border-slate-200 bg-slate-100 dark:border-zinc-700 dark:bg-zinc-800">
               {tabConfig.map((tab) => {
                 const active = tab.key === activeTab;
                 return (
                   <Pressable
                     key={tab.key}
                     onPress={() => setActiveTab(tab.key)}
-                    className={`flex-1 rounded-full px-4 py-2.5 ${
-                      active ? "bg-white dark:bg-zinc-700" : ""
+                    className={`flex-1 rounded-full px-4 py-4 ${
+                      active ? "bg-white" : ""
                     }`}
                   >
                     <Text
                       className={`text-center text-sm font-semibold ${
-                        active ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
+                        active
+                          ? "text-black"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
                       {tab.label}
@@ -308,12 +338,16 @@ export default function OldSortFilterModal({
               })}
             </View>
 
-            <View className="mt-3 flex-row items-center rounded-[22px] border border-slate-200 bg-slate-50 px-4 dark:border-zinc-700 dark:bg-zinc-800">
+            <View className="mt-3 flex-row items-center rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-1 dark:border-zinc-700 dark:bg-zinc-800">
               <Search size={16} color={isDarkMode ? "#94A3B8" : "#64748B"} />
               <TextInput
                 value={search[activeTab]}
-                onChangeText={(text) => setSearch((prev) => ({ ...prev, [activeTab]: text }))}
-                placeholder={tabConfig.find((tab) => tab.key === activeTab)?.searchLabel}
+                onChangeText={(text) =>
+                  setSearch((prev) => ({ ...prev, [activeTab]: text }))
+                }
+                placeholder={
+                  tabConfig.find((tab) => tab.key === activeTab)?.searchLabel
+                }
                 placeholderTextColor={isDarkMode ? "#94A3B8" : "#94A3B8"}
                 className="ml-2.5 h-11 flex-1 text-base text-slate-900 dark:text-white"
                 autoCapitalize="none"
@@ -338,7 +372,9 @@ export default function OldSortFilterModal({
               return (
                 <Pressable
                   onPress={() =>
-                    activeState.onSelect((current) => (current === item.id ? undefined : item.id))
+                    activeState.onSelect((current) =>
+                      current === item.id ? undefined : item.id,
+                    )
                   }
                   className={`mb-2.5 flex-row items-center justify-between rounded-2xl border px-4 py-3.5 ${
                     active
@@ -348,13 +384,18 @@ export default function OldSortFilterModal({
                 >
                   <Text
                     className={`text-base font-semibold ${
-                      active ? "text-white dark:text-zinc-900" : "text-slate-900 dark:text-white"
+                      active
+                        ? "text-white dark:text-zinc-900"
+                        : "text-slate-900 dark:text-white"
                     }`}
                   >
                     {item.label}
                   </Text>
                   {active ? (
-                    <Check size={18} color={isDarkMode ? "#09090B" : "#FFFFFF"} />
+                    <Check
+                      size={18}
+                      color={isDarkMode ? "#09090B" : "#FFFFFF"}
+                    />
                   ) : null}
                 </Pressable>
               );
@@ -362,7 +403,9 @@ export default function OldSortFilterModal({
             ListFooterComponent={
               activeState.loading ? (
                 <View className="py-4">
-                  <ActivityIndicator color={isDarkMode ? "#FFFFFF" : "#334155"} />
+                  <ActivityIndicator
+                    color={isDarkMode ? "#FFFFFF" : "#334155"}
+                  />
                 </View>
               ) : null
             }
@@ -385,10 +428,15 @@ export default function OldSortFilterModal({
               onPress={handleClearAll}
               className="rounded-full border border-slate-300 px-5 py-3 dark:border-zinc-600"
             >
-              <Text className="font-semibold text-slate-700 dark:text-slate-200">Clear</Text>
+              <Text className="font-semibold text-slate-700 dark:text-slate-200">
+                Clear
+              </Text>
             </Pressable>
-            <Pressable onPress={handleApply} className="rounded-full bg-slate-900 px-6 py-3 dark:bg-white">
-              <Text className="font-semibold text-white dark:text-zinc-900">Apply</Text>
+            <Pressable
+              onPress={handleApply}
+              className="rounded-full bg-primary px-6 py-3 dark:bg-primary"
+            >
+              <Text className="font-semibold text-white">Apply</Text>
             </Pressable>
           </View>
         </View>

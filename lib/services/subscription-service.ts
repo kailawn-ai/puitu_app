@@ -37,7 +37,11 @@ export interface CourseProductOptionProduct {
   description?: string | null;
   price?: string | number | null;
   discount_price?: string | number | null;
+  discount_start?: string | null;
+  discount_end?: string | null;
   final_price?: number | null;
+  discount_percent?: number | null;
+  is_discount_active?: boolean;
   allow_points?: boolean;
   points_price?: number | null;
   device_increment?: number | null;

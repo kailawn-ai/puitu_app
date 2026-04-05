@@ -34,13 +34,6 @@ import type { Product } from "@/lib/services/product-service";
 
 type PaymentChoice = "razorpay" | "points";
 
-const featurePills = [
-  { label: "Scan & get Answer", icon: ScanSearch },
-  { label: "Calculation History", icon: History },
-  { label: "Unlimited Attempts", icon: Sparkles },
-  { label: "Secure Access", icon: ShieldCheck },
-] as const;
-
 const formatCurrency = (value?: string | number | null) => {
   const amount = Number(value ?? 0);
 
@@ -77,6 +70,55 @@ const formatDuration = (days?: number | null) => {
 
 const getProductPrice = (product: Product) =>
   product.discount_price ?? product.price ?? 0;
+
+const parseDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+const getPurchaseTimeline = (purchase: {
+  access_start?: string | null;
+  access_end?: string | null;
+  created_at?: string;
+}) => {
+  const now = Date.now();
+  const startDate = parseDate(
+    purchase.access_start ?? purchase.created_at ?? null,
+  );
+  const endDate = parseDate(purchase.access_end ?? null);
+
+  if (!endDate) {
+    return {
+      startLabel: startDate ? formatDate(startDate.toISOString()) : "Started",
+      endLabel: "Lifetime",
+      progressPercent: 100,
+      statusLabel: "Lifetime access",
+      isExpired: false,
+    };
+  }
+
+  const startMs = startDate?.getTime() ?? endDate.getTime();
+  const endMs = endDate.getTime();
+  const totalMs = Math.max(endMs - startMs, 1);
+  const elapsedMs = Math.min(Math.max(now - startMs, 0), totalMs);
+  const progressPercent = Math.round((elapsedMs / totalMs) * 100);
+  const remainingDays = Math.ceil((endMs - now) / (1000 * 60 * 60 * 24));
+  const isExpired = remainingDays <= 0;
+
+  return {
+    startLabel: startDate ? formatDate(startDate.toISOString()) : "Started",
+    endLabel: formatDate(endDate.toISOString()),
+    progressPercent,
+    statusLabel: isExpired
+      ? "Expired"
+      : remainingDays === 1
+        ? "1 day left"
+        : `${remainingDays} days left`,
+    isExpired,
+  };
+};
 
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
@@ -238,12 +280,12 @@ export default function SubscriptionScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         contentContainerStyle={{
-          paddingTop: insets.top + 12,
+          paddingTop: insets.top + 1,
           paddingBottom: insets.bottom + 100,
         }}
       >
-        <View className="px-4">
-          <View className="relative overflow-hidden rounded-[36px] border border-black/5 bg-white/92 px-5 pb-6 pt-4 dark:border-white/10 dark:bg-[#0F172A]/92">
+        <View className="">
+          <View className="relative overflow-hidden border border-black/5 bg-white/92 px-5 pb-6 pt-4 dark:border-white/10 dark:bg-[#0F172A]/92">
             <LinearGradient
               colors={
                 isDark
@@ -314,24 +356,6 @@ export default function SubscriptionScreen() {
               </Text>
             </View>
 
-            <View className="mt-10 flex-row flex-wrap justify-center">
-              {featurePills.map((feature) => {
-                const Icon = feature.icon;
-
-                return (
-                  <View
-                    key={feature.label}
-                    className="mb-3 mr-2 flex-row items-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <Icon size={14} color={isDark ? "#A7F3D0" : "#059669"} />
-                    <Text className="ml-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                      {feature.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
             <View className="mt-2 flex-row gap-3">
               <View className="flex-1 rounded-[28px] border border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-white/5">
                 <View className="flex-row items-center justify-between">
@@ -341,27 +365,10 @@ export default function SubscriptionScreen() {
                   <Wallet size={18} color={isDark ? "#FCD34D" : "#D97706"} />
                 </View>
                 <Text className="mt-4 text-[30px] font-black tracking-[-1px] text-slate-950 dark:text-white">
-                  {availablePoints}
+                  {availablePoints} points
                 </Text>
                 <Text className="mt-2 text-xs leading-4 text-slate-600 dark:text-slate-300">
                   Available points for point-enabled purchases.
-                </Text>
-              </View>
-
-              <View className="flex-1 rounded-[28px] border border-emerald-300 bg-emerald-50 px-4 py-4 dark:bg-emerald-500/10">
-                <View className="mb-3 self-start rounded-full bg-emerald-500 px-3 py-1.5">
-                  <Text className="text-[10px] font-bold uppercase tracking-[1.2px] text-white">
-                    Access
-                  </Text>
-                </View>
-                <Text className="text-lg font-bold text-slate-900 dark:text-white">
-                  {purchases.length > 0 ? "Purchased" : "Ready to unlock"}
-                </Text>
-                <Text className="mt-4 text-[30px] font-black tracking-[-1px] text-slate-950 dark:text-white">
-                  {products.length}
-                </Text>
-                <Text className="mt-2 text-xs leading-4 text-slate-600 dark:text-slate-300">
-                  Active products available in your premium catalog.
                 </Text>
               </View>
             </View>
@@ -405,51 +412,101 @@ export default function SubscriptionScreen() {
                   </View>
                 ) : (
                   <View className="mt-5 gap-3">
-                    {purchases.map((purchase) => (
-                      <View
-                        key={purchase.id}
-                        className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <View className="flex-row items-start justify-between">
-                          <View className="flex-1 pr-3">
-                            <Text className="text-lg font-bold text-slate-900 dark:text-white">
-                              {purchase.product?.name ??
-                                `Product #${purchase.product_id}`}
-                            </Text>
-                            <Text className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                              {purchase.product?.description ||
-                                "Premium access is active on this account."}
-                            </Text>
+                    {purchases.map((purchase) => {
+                      const timeline = getPurchaseTimeline(purchase);
+
+                      return (
+                        <View
+                          key={purchase.id}
+                          className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/5"
+                        >
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 pr-3">
+                              <Text className="text-lg font-bold text-slate-900 dark:text-white">
+                                {purchase.product?.name ??
+                                  `Product #${purchase.product_id}`}
+                              </Text>
+                              <Text className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                {purchase.product?.description ||
+                                  "Premium access is active on this account."}
+                              </Text>
+                            </View>
+
+                            <View
+                              className={`rounded-full px-3 py-1.5 ${
+                                timeline.isExpired
+                                  ? "bg-rose-500"
+                                  : "bg-emerald-500"
+                              }`}
+                            >
+                              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-white">
+                                {timeline.isExpired ? "Expired" : "Active"}
+                              </Text>
+                            </View>
                           </View>
 
-                          <View className="rounded-full bg-emerald-500 px-3 py-1.5">
-                            <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-white">
-                              Active
-                            </Text>
-                          </View>
-                        </View>
+                          <View className="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-slate-900">
+                            <View className="flex-row items-center justify-between">
+                              <Text className="text-[11px] font-bold uppercase tracking-[1.1px] text-slate-500 dark:text-slate-400">
+                                Validity timeline
+                              </Text>
+                              <Text
+                                className={`text-xs font-bold ${
+                                  timeline.isExpired
+                                    ? "text-rose-600 dark:text-rose-300"
+                                    : "text-emerald-600 dark:text-emerald-300"
+                                }`}
+                              >
+                                {timeline.statusLabel}
+                              </Text>
+                            </View>
 
-                        <View className="mt-4 flex-row flex-wrap gap-2">
-                          <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
-                            <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                              {purchase.access_end
-                                ? `Ends ${formatDate(purchase.access_end)}`
-                                : "Lifetime access"}
-                            </Text>
+                            <View className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                              <View
+                                className={`h-full rounded-full ${
+                                  timeline.isExpired
+                                    ? "bg-rose-500"
+                                    : "bg-emerald-500"
+                                }`}
+                                style={{
+                                  width: `${timeline.progressPercent}%`,
+                                }}
+                              />
+                            </View>
+
+                            <View className="mt-2 flex-row items-center justify-between">
+                              <Text className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                Start {timeline.startLabel}
+                              </Text>
+                              <Text className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                End {timeline.endLabel}
+                              </Text>
+                            </View>
                           </View>
-                          <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
-                            <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                              {purchase.device_increment ?? 0} device increment
-                            </Text>
-                          </View>
-                          <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
-                            <Text className="text-xs font-semibold capitalize text-slate-700 dark:text-slate-200">
-                              {purchase.payment_method.replace("_", " ")}
-                            </Text>
+
+                          <View className="mt-4 flex-row flex-wrap gap-2">
+                            <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
+                              <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                {purchase.access_end
+                                  ? `Ends ${formatDate(purchase.access_end)}`
+                                  : "Lifetime access"}
+                              </Text>
+                            </View>
+                            <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
+                              <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                {purchase.device_increment ?? 0} device
+                                increment
+                              </Text>
+                            </View>
+                            <View className="rounded-full bg-white px-3 py-2 dark:bg-slate-900">
+                              <Text className="text-xs font-semibold capitalize text-slate-700 dark:text-slate-200">
+                                {purchase.payment_method.replace("_", " ")}
+                              </Text>
+                            </View>
                           </View>
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
               </View>
@@ -657,7 +714,7 @@ export default function SubscriptionScreen() {
                           <LinearGradient
                             colors={
                               isDark
-                                ? ["#2A2A2A", "#090909"]
+                                ? ["#5a3ec0", "#5a3ec0"]
                                 : ["#4B4B4B", "#222222"]
                             }
                             start={{ x: 0, y: 0 }}

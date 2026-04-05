@@ -120,15 +120,6 @@ export default function SearchResultCard({
               {item.subtitle}
             </Text>
           )}
-
-          {!!item.description && (
-            <Text
-              numberOfLines={2}
-              className="mt-2 text-sm leading-5 text-slate-600 dark:text-slate-300"
-            >
-              {item.description}
-            </Text>
-          )}
         </View>
       </View>
     </TouchableOpacity>

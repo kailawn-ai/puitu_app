@@ -317,14 +317,11 @@ export const CommunityService = {
   },
 
   async setTyping(
-    groupId: number | string,
-    payload: SetCommunityTypingPayload,
+    _groupId: number | string,
+    _payload: SetCommunityTypingPayload,
   ): Promise<{ status: string; message?: string }> {
-    const res = await apiClient.post<{ status: string; message?: string }>(
-      `/community/groups/${groupId}/typing`,
-      payload,
-    );
-    return res.data;
+    // Typing network calls are intentionally disabled.
+    return { status: "success", message: "Typing API disabled" };
   },
 
   async getQuizSessions(

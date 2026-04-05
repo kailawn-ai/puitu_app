@@ -4,6 +4,7 @@ import {
   ProductService,
   ResolveProductParams,
 } from "@/lib/services/product-service";
+import type { CheckoutSummary } from "@/lib/services/product-service";
 import {
   CourseProductOptionProduct,
   CourseProductOptionsData,
@@ -11,13 +12,14 @@ import {
 } from "@/lib/services/subscription-service";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Check, ShieldCheck, Sparkles, Wallet } from "lucide-react-native";
+import { Check, ShieldCheck, Sparkles } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -52,6 +54,18 @@ const formatCurrency = (value?: string | number | null) => {
     currency: "INR",
     maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
   }).format(amount);
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 };
 
 const parseCourseIdFromReturnTo = (returnTo?: string): string | undefined => {
@@ -103,19 +117,17 @@ const PaymentScreen = () => {
   const [paying, setPaying] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("razorpay");
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(
+    null,
+  );
+  const [checkoutSummaryLoading, setCheckoutSummaryLoading] = useState(false);
+  const [showCheckoutSummaryModal, setShowCheckoutSummaryModal] =
+    useState(false);
 
   const resolvedCourseId = useMemo(
     () => params.courseId || parseCourseIdFromReturnTo(params.returnTo),
     [params.courseId, params.returnTo],
   );
-
-  const resolvedTitle = useMemo(() => {
-    if (courseOptions?.course?.title) {
-      return courseOptions.course.title;
-    }
-
-    return params.title || product?.name || "Premium Content";
-  }, [courseOptions?.course?.title, params.title, product?.name]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -372,27 +384,52 @@ const PaymentScreen = () => {
 
   const totalAmount = useMemo(() => {
     if (selectedOptions.length === 0) {
-      return Number(product?.discount_price ?? product?.price ?? 0);
+      return Number(product?.final_price ?? product?.price ?? 0);
     }
 
     return selectedOptions.reduce((sum, option) => {
-      return (
-        sum +
-        Number(
-          option.product.final_price ??
-            option.product.discount_price ??
-            option.product.price ??
-            0,
-        )
-      );
+      return sum + Number(option.product.final_price ?? option.product.price ?? 0);
     }, 0);
   }, [product, selectedOptions]);
+
+  const isOldQuestionProduct = useMemo(() => {
+    if (params.modelType === "old-question") return true;
+
+    const productCategory = (product?.category || "").toLowerCase();
+    const productableType = String(product?.productable_type || "");
+
+    return (
+      productCategory === "old-question" ||
+      productableType.toLowerCase().includes("oldquestion")
+    );
+  }, [params.modelType, product?.category, product?.productable_type]);
+
+  const oldQuestionDiscountPercent = useMemo(() => {
+    const explicitPercent = Number(product?.discount_percent ?? 0);
+    if (explicitPercent > 0) return explicitPercent;
+
+    const realPrice = Number(product?.price ?? 0);
+    const discountedPrice = Number(
+      product?.discount_price ?? product?.final_price ?? 0,
+    );
+
+    if (realPrice > 0 && discountedPrice > 0 && discountedPrice < realPrice) {
+      return Math.round(((realPrice - discountedPrice) / realPrice) * 100);
+    }
+
+    return 0;
+  }, [product?.discount_percent, product?.discount_price, product?.final_price, product?.price]);
 
   const totalPointsNeeded = useMemo(() => {
     return selectedOptions.reduce((sum, option) => {
       return sum + Number(option.product.points_price ?? 0);
     }, 0);
   }, [selectedOptions]);
+
+  const isMultiRazorpaySelection =
+    Boolean(courseOptions) &&
+    paymentChoice === "razorpay" &&
+    selectedOptions.length > 1;
 
   const pointsEligible =
     selectedOptions.length > 0 &&
@@ -412,6 +449,11 @@ const PaymentScreen = () => {
       setPaymentChoice("razorpay");
     }
   }, [canUsePoints, paymentChoice]);
+
+  useEffect(() => {
+    setCheckoutSummary(null);
+    setShowCheckoutSummaryModal(false);
+  }, [paymentChoice, selectedOptions]);
 
   const toggleSelection = (option: SelectableOption) => {
     if (option.isPurchased) return;
@@ -512,14 +554,53 @@ const PaymentScreen = () => {
     }
   };
 
+  const loadCheckoutSummary = async (): Promise<CheckoutSummary | null> => {
+    if (selectedOptions.length < 2) {
+      return null;
+    }
+
+    setCheckoutSummaryLoading(true);
+
+    try {
+      const summary = await ProductService.calculateCheckoutSummary(
+        selectedOptions.map((option) => option.productId),
+      );
+
+      setCheckoutSummary(summary);
+      return summary;
+    } catch (error: any) {
+      console.log("Checkout summary failed:", error);
+      Alert.alert(
+        "Unable to prepare checkout",
+        error?.message || "We could not calculate the final checkout amount.",
+      );
+      return null;
+    } finally {
+      setCheckoutSummaryLoading(false);
+    }
+  };
+
+  const openCheckoutSummary = async () => {
+    if (paying || checkoutSummaryLoading) return;
+
+    const summary = await loadCheckoutSummary();
+    if (!summary) return;
+
+    setShowCheckoutSummaryModal(true);
+  };
+
   const renderOptionCard = (option: SelectableOption) => {
     const isSelected = selectedProductIds.includes(option.productId);
     const disabled = option.isPurchased;
-    const priceLabel = formatCurrency(
-      option.product.final_price ??
-        option.product.discount_price ??
-        option.product.price,
-    );
+    const basePrice = Number(option.product.price ?? 0);
+    const finalPrice = Number(option.product.final_price ?? option.product.price ?? 0);
+    const hasActiveDiscount =
+      Boolean(option.product.is_discount_active) && finalPrice < basePrice;
+    const savedAmount = Math.max(basePrice - finalPrice, 0);
+    const discountPercent = Number(option.product.discount_percent ?? 0);
+    const discountStartLabel = formatDate(option.product.discount_start);
+    const discountEndLabel = formatDate(option.product.discount_end);
+    const priceLabel = formatCurrency(finalPrice);
 
     return (
       <TouchableOpacity
@@ -544,6 +625,31 @@ const PaymentScreen = () => {
             <Text className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
               {priceLabel}
             </Text>
+            <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Price: {formatCurrency(basePrice)}
+            </Text>
+            <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Discount price:{" "}
+              {option.product.discount_price !== null &&
+              option.product.discount_price !== undefined
+                ? formatCurrency(option.product.discount_price)
+                : "Not set"}
+            </Text>
+            {discountStartLabel || discountEndLabel ? (
+              <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Offer: {discountStartLabel ?? "No start"} -{" "}
+                {discountEndLabel ?? "No end"}
+              </Text>
+            ) : null}
+            {hasActiveDiscount ? (
+              <Text className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                Active {discountPercent}% OFF, you save {formatCurrency(savedAmount)}
+              </Text>
+            ) : option.product.discount_price ? (
+              <Text className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Discount inactive. Real price is applied.
+              </Text>
+            ) : null}
             {option.product.allow_points && option.product.points_price ? (
               <Text className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
                 {option.product.points_price} points available
@@ -625,45 +731,54 @@ const PaymentScreen = () => {
             </View>
           ) : (
             <>
-              <View className="mt-7 rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <Text className="text-xs uppercase tracking-[1px] text-slate-500 dark:text-slate-400">
-                  Selection
-                </Text>
-                <Text className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">
-                  {resolvedTitle}
-                </Text>
-                {courseOptions?.course?.summary ? (
-                  <Text className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
-                    {courseOptions.course.summary}
+              {!courseOptions ? (
+                <View className="mt-7 rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-zinc-800 dark:bg-zinc-950">
+                  <Text className="text-xs uppercase tracking-[1px] text-slate-500 dark:text-slate-400">
+                    Selection
                   </Text>
-                ) : product?.description ? (
-                  <Text className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
-                    {product.description}
+                  <Text className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">
+                    {params.title || product?.name || "Premium Content"}
                   </Text>
-                ) : null}
+                  {product?.name ? (
+                    <Text className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
+                      {product.name}
+                    </Text>
+                  ) : product?.description ? (
+                    <Text className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
+                      {product.description}
+                    </Text>
+                  ) : null}
 
-                <View className="mt-5 flex-row items-end justify-between">
-                  <View>
-                    <Text className="text-xs uppercase tracking-[1px] text-slate-500 dark:text-slate-400">
-                      Total
-                    </Text>
-                    <Text className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
-                      {formatCurrency(totalAmount)}
-                    </Text>
+                  <View className="mt-5 flex-row items-end justify-between">
+                    <View>
+                      <Text className="text-xs uppercase tracking-[1px] text-slate-500 dark:text-slate-400">
+                        Total
+                      </Text>
+                      <Text className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(totalAmount)}
+                      </Text>
+                    </View>
                   </View>
 
-                  {courseOptions ? (
-                    <View className="rounded-full bg-amber-100 px-3 py-2 dark:bg-amber-950/40">
-                      <View className="flex-row items-center">
-                        <Wallet size={14} color="#B45309" />
-                        <Text className="ml-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
-                          {availablePoints} points
-                        </Text>
-                      </View>
+                  {isOldQuestionProduct && product ? (
+                    <View className="mt-4 rounded-2xl bg-white p-3 dark:bg-zinc-900">
+                      <Text className="text-xs text-slate-600 dark:text-slate-300">
+                        Real price: {formatCurrency(product.price)}
+                      </Text>
+                      <Text className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        Discount price:{" "}
+                        {product.discount_price !== null &&
+                        product.discount_price !== undefined
+                          ? formatCurrency(product.discount_price)
+                          : "Not set"}
+                      </Text>
+                      <Text className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                        Discount percent: {oldQuestionDiscountPercent}%
+                      </Text>
                     </View>
                   ) : null}
                 </View>
-              </View>
+              ) : null}
 
               {courseOptions ? (
                 <>
@@ -761,8 +876,8 @@ const PaymentScreen = () => {
                     {selectedOptions.length > 1 &&
                     paymentChoice === "razorpay" ? (
                       <Text className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">
-                        Multiple Razorpay selections will run one checkout per
-                        item with the current backend flow.
+                        Multiple selections can be reviewed with backend pricing
+                        before checkout.
                       </Text>
                     ) : null}
                   </View>
@@ -785,13 +900,18 @@ const PaymentScreen = () => {
               </View>
 
               <TouchableOpacity
-                onPress={handlePay}
+                onPress={
+                  isMultiRazorpaySelection ? openCheckoutSummary : handlePay
+                }
                 disabled={
                   paying ||
+                  checkoutSummaryLoading ||
                   (courseOptions ? selectedOptions.length === 0 : !product)
                 }
                 className={`mt-8 h-14 items-center justify-center rounded-2xl ${
-                  paying ? "bg-primary-400" : "bg-primary-500"
+                  paying || checkoutSummaryLoading
+                    ? "bg-primary-400"
+                    : "bg-primary-500"
                 } ${
                   courseOptions && selectedOptions.length === 0
                     ? "opacity-60"
@@ -800,11 +920,15 @@ const PaymentScreen = () => {
               >
                 {paying ? (
                   <ActivityIndicator color="#FFFFFF" />
+                ) : checkoutSummaryLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text className="text-base font-bold text-white">
                     {paymentChoice === "points" && canUsePoints
                       ? `Purchase with ${totalPointsNeeded} points`
-                      : courseOptions && selectedOptions.length > 1
+                      : isMultiRazorpaySelection
+                        ? "Review total & continue"
+                        : courseOptions && selectedOptions.length > 1
                         ? `Buy ${selectedOptions.length} items`
                         : "Pay with Razorpay"}
                   </Text>
@@ -814,6 +938,97 @@ const PaymentScreen = () => {
           )}
         </ScrollView>
       </View>
+
+      <Modal
+        visible={showCheckoutSummaryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCheckoutSummaryModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
+          <View className="w-full max-w-md rounded-3xl bg-white p-5 dark:bg-zinc-900">
+            <Text className="text-lg font-bold text-slate-900 dark:text-white">
+              Checkout summary
+            </Text>
+            <Text className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Backend calculated pricing for your selected products.
+            </Text>
+
+            <View className="mt-4 gap-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-slate-600 dark:text-slate-300">
+                  Product count
+                </Text>
+                <Text className="font-semibold text-slate-900 dark:text-white">
+                  {checkoutSummary?.product_count ?? selectedOptions.length}
+                </Text>
+              </View>
+
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-slate-600 dark:text-slate-300">
+                  Total base price
+                </Text>
+                <Text className="font-semibold text-slate-900 dark:text-white">
+                  {formatCurrency(checkoutSummary?.total_real_price ?? totalAmount)}
+                </Text>
+              </View>
+
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-slate-600 dark:text-slate-300">
+                  Final price
+                </Text>
+                <Text className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  {formatCurrency(
+                    checkoutSummary?.total_final_price ?? totalAmount,
+                  )}
+                </Text>
+              </View>
+
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-slate-600 dark:text-slate-300">
+                  You save
+                </Text>
+                <Text className="font-semibold text-amber-700 dark:text-amber-300">
+                  {formatCurrency(checkoutSummary?.total_saved ?? 0)} (
+                  {checkoutSummary?.off_percent ?? 0}% OFF)
+                </Text>
+              </View>
+            </View>
+
+            <View className="mt-5 flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => setShowCheckoutSummaryModal(false)}
+                activeOpacity={0.92}
+                className="flex-1 items-center justify-center rounded-xl border border-slate-200 py-3 dark:border-zinc-700"
+              >
+                <Text className="font-semibold text-slate-700 dark:text-slate-200">
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={async () => {
+                  setShowCheckoutSummaryModal(false);
+                  await handlePay();
+                }}
+                activeOpacity={0.92}
+                disabled={paying}
+                className={`flex-1 items-center justify-center rounded-xl py-3 ${
+                  paying ? "bg-primary-400" : "bg-primary-500"
+                }`}
+              >
+                {paying ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="font-semibold text-white">
+                    Pay {formatCurrency(checkoutSummary?.total_final_price)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };

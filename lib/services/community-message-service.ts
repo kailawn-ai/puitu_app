@@ -18,6 +18,8 @@ export interface CommunityRealtimeMessage extends Omit<CommunityMessage, "id"> {
   id: string;
   db_message_id?: number;
   timestamp?: number | null;
+  is_body_encrypted?: boolean;
+  encryption?: string | null;
 }
 
 export interface CommunityMessageCursor {
@@ -32,6 +34,10 @@ export interface CommunityReadState {
   group_id: number;
   user_id: string;
   last_read_at?: string | null;
+}
+
+export interface CommunityDecryptResponse {
+  body: string;
 }
 
 const sortRealtimeMessages = (
@@ -104,12 +110,20 @@ export const CommunityMessageService = {
   },
 
   async setTyping(
-    groupId: number | string,
-    isTyping: boolean,
+    _groupId: number | string,
+    _isTyping: boolean,
   ): Promise<{ status: string; message?: string }> {
-    const res = await apiClient.post<{ status: string; message?: string }>(
-      `/community/groups/${groupId}/typing`,
-      { is_typing: isTyping },
+    // Typing network calls are intentionally disabled.
+    return { status: "success", message: "Typing API disabled" };
+  },
+
+  async decryptRealtimeBody(
+    groupId: number | string,
+    encryptedBody: string,
+  ): Promise<CommunityDecryptResponse> {
+    const res = await apiClient.post<CommunityDecryptResponse>(
+      `/community/groups/${groupId}/messages/decrypt`,
+      { body: encryptedBody },
     );
     return res.data;
   },

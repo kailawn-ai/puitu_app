@@ -41,6 +41,9 @@ export interface Product {
   discount_price?: string | number | null;
   discount_start?: string | null;
   discount_end?: string | null;
+  final_price?: number | null;
+  discount_percent?: number | null;
+  is_discount_active?: boolean;
   device_increment?: number | null;
   access_duration_days?: number | null;
   category?: string | null;
@@ -102,6 +105,18 @@ export interface UpdateProductPayload {
   is_featured?: boolean;
 }
 
+export interface CheckoutSummary {
+  product_count: number;
+  total_real_price: number;
+  total_discount_price: number;
+  total_final_price: number;
+  total_saved: number;
+  off_percent: number;
+  currency: string;
+  product_ids: number[];
+  missing_product_ids: number[];
+}
+
 const buildQueryString = (params?: Record<string, unknown>): string => {
   if (!params) return "";
 
@@ -158,6 +173,16 @@ export const ProductService = {
   }> {
     const res = await apiClient.delete<{ status?: string; message?: string }>(
       `/products/${productId}`,
+    );
+    return res.data;
+  },
+
+  async calculateCheckoutSummary(
+    productIds: number[],
+  ): Promise<CheckoutSummary> {
+    const res = await apiClient.post<CheckoutSummary>(
+      "/products/checkout-summary",
+      { product_ids: productIds },
     );
     return res.data;
   },

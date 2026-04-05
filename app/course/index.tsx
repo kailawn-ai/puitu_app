@@ -208,14 +208,14 @@ export default function CourseQualificationBrowseScreen() {
         }
         ListHeaderComponent={
           <View className="pb-4">
-            <View className="mt-5 flex-row items-center rounded-[30px] border border-slate-200 bg-white px-4 py-1 dark:border-secondary-700 dark:bg-secondary-900">
+            <View className="mt-5 flex-row items-center rounded-[26px] border border-slate-200 bg-white px-4 py-1 dark:border-zinc-700 dark:bg-zinc-800">
               <Search size={18} color={isDarkMode ? "#94A3B8" : "#64748B"} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search your qualifications"
                 placeholderTextColor="#94A3B8"
-                className="flex-1 px-3 py-3 text-base text-slate-900 dark:text-white"
+                className="flex-row px-3 py-3 justify-center text-base text-slate-900 dark:text-white"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
